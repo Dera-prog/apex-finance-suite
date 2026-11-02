@@ -1,0 +1,443 @@
+              APEX FINANCE
+     PRODUCT REQUIREMENTS
+
+                DOCUMENT
+
+            Nigeria-first digital savings, payments and share-investing platform
+
+                             Document status: Product planning draft
+                                                Version: 1.0
+
+                                         Date: 2 November 2026
+                                   Primary launch market: Nigeria
+
+     Save. Access. Invest. Grow.
+
+Prepared as a product and design reference for product, UX, engineering, operations,
+                              compliance and business stakeholders.
+
+APEX FINANCE | PRODUCT REQUIREMENTS DOCUMENT  Page 1
+Document Overview
+
+This Product Requirements Document (PRD) defines the MVP scope, user experience, functional requirements,
+operational needs and launch considerations for Apex Finance. It consolidates the product vision and requirements
+supplied for the project, with Nigeria-focused implementation notes.
+Important: This is a product-planning document, not legal advice or evidence that Apex Finance holds any
+financial-services licence. The operating model, regulated partners, product disclosures and regulatory approvals must
+be confirmed with qualified Nigerian legal and compliance advisers before launch.
+
+1. Product Vision
+
+A simple, secure mobile app that helps users save money, access funds easily and invest in company shares--all
+from one platform.
+Core values: Simplicity · Trust · Accessibility · Growth
+
+1.1 Product Summary
+
+Apex Finance is a mobile-first financial platform designed to bring everyday savings, wallet funding, withdrawals,
+transfers and beginner-friendly share investing into one coherent experience. The MVP is Nigeria-first, with
+architecture and operating processes designed to support future African-market expansion.
+
+1.2 Product Principles
+
+· Simple: Use plain language, predictable flows and clear next steps.
+· Transparent: Disclose fees, rates, settlement timing, restrictions and investment risks before users commit.
+· Secure: Protect accounts, transactions and personal information through layered controls.
+· Inclusive: Support different income patterns and users who are new to saving or investing.
+· Responsible: Offer regulated financial and investment services only through appropriately authorised entities and
+partners.
+
+1.3 Problem Statement
+
+Many users struggle with fragmented financial services--separate apps for savings, withdrawals and
+investments--leading to confusion, low trust and poor financial growth. Existing platforms can be complex, unfriendly
+to beginners or inaccessible to underserved users.
+
+1.4 Solution
+
+A unified mobile app that combines digital savings, seamless withdrawals and beginner-friendly share investing,
+designed with simplicity, transparency and security at its core.
+
+2. Goals & Objectives
+
+2.1 Business Goals
+
+· Increase financial inclusion.
+· Drive user adoption and retention.
+· Generate sustainable revenue through disclosed transactions and investment-related services.
+
+2.2 User Goals
+
+· Save money easily and consistently.
+· Access eligible funds without unnecessary friction.
+· Invest in company shares with understandable information and confidence.
+
+APEX FINANCE | PRODUCT REQUIREMENTS DOCUMENT  Page 2
+2.3 Success Metrics (KPIs)
+
+Metric                      What it measures
+
+Monthly Active Users (MAU) Number of users actively using the app each month.
+
+Total savings volume        Total principal held in eligible savings products.
+
+Withdrawal success rate     Percentage of valid withdrawal requests completed successfully.
+
+Investment transaction volumeValue and count of completed buy/sell transactions.
+
+30/90-day retention         Users who remain active 30 and 90 days after activation.
+
+App crash rate              Frequency of app crashes relative to sessions or users.
+
+3. Target Users & Personas
+
+Persona 1: Salary Earner
+
+· Needs structured savings around a regular pay cycle.
+· May withdraw or transfer funds monthly.
+· Is a beginner or cautious investor and values clear explanations.
+
+Persona 2: Freelancer / SME Owner
+
+· Receives irregular income.
+· Needs flexible deposits and visibility over cash flow.
+· Wants accessible ways to save and potentially grow surplus funds.
+
+Persona 3: First-Time Investor
+
+· May start with a relatively small amount of capital.
+· Needs understandable company and market information.
+· Needs risk explanations and clear order confirmations; investments must not be presented as risk-free.
+
+4. Scope
+
+4.1 In Scope -- MVP
+
+· User onboarding and authentication.
+· KYC identity verification and verification-status tracking.
+· Wallet funding and transaction history.
+· Flexible, fixed and target savings plans.
+· Withdrawals to verified bank accounts and eligible wallet-to-wallet transfers.
+· Share discovery, buy/sell orders and portfolio tracking through an appropriately licensed broker/investment partner.
+· Security controls and notifications.
+· Admin and operational monitoring.
+
+4.2 Out of Scope -- Phase 1
+
+· Loans and credit products.
+· Cryptocurrency.
+· Insurance products.
+
+APEX FINANCE | PRODUCT REQUIREMENTS DOCUMENT                                                              Page 3
+4.3 Later Phases
+
+· Advanced portfolio and savings analytics.
+· Automated investing, subject to suitability, consent and regulatory review.
+· Additional African markets after country-by-country legal, partner and operational readiness.
+
+5. App Navigation & Information Architecture
+
+The primary mobile navigation should remain persistent on the main authenticated screens.
+
+5.1 Bottom Navigation
+
+Tab      Purpose                              Key content
+Home     Overview and quick actions
+                                              Total balance, savings snapshot, portfolio snapshot, recent activity,
+Save     Savings management                   fund/withdraw shortcuts.
+
+Invest   Share investing                      Flexible, fixed and target savings; create plan; plan details and
+                                              progress.
+Profile  Account and settings
+                                              Discover companies, share details, watchlist, buy/sell, portfolio and risk
+                                              education.
+
+                                              Personal details, KYC, linked banks, security, notifications, support,
+                                              legal documents and logout.
+
+6. Functional Requirements
+
+6.1 User Onboarding & Authentication
+
+Requirements
+· Sign up using a Nigerian phone number and/or email address.
+· Verify contact details using a one-time password (OTP).
+· Create a secure transaction PIN.
+· Offer biometric login where supported by the device.
+· Provide password/PIN reset and account-recovery flows.
+Acceptance criteria
+· A typical user can complete basic account creation in under two minutes, excluding external verification delays.
+· OTP expires after a configurable period and can be resent subject to rate limits.
+· Sensitive actions require appropriate step-up authentication.
+
+6.2 KYC Verification
+
+Proposed verification levels
+· Level 1 -- Basic: Basic personal details and contact verification, with restricted transaction limits and feature access
+as permitted by the partner and applicable rules.
+· Level 2 -- Verified: Required identity checks, which may include NIN/BVN validation, an accepted identity document
+and selfie/liveness verification, depending on the service and partner requirements.
+Requirements
+· Collect only information necessary for the relevant service and legal purpose.
+· Support identity-document capture or approved identity-provider verification.
+· Show clear KYC states: Not started, In review, Verified, Action required or Failed.
+
+APEX FINANCE | PRODUCT REQUIREMENTS DOCUMENT                                                     Page 4
+· Explain what is missing when additional information is required.
+· Apply transaction limits and access controls according to approved KYC policy.
+Nigeria implementation note: BVN and NIN are sensitive identifiers. Use approved verification channels, explicit
+notices, strict access controls and data-minimisation practices. The final KYC tiers and limits must be set with the
+licensed bank, payment and investment partners and compliance counsel.
+
+6.3 Wallet
+
+· Display available wallet balance and, where applicable, balances that are pending or restricted.
+· Allow wallet funding through supported bank transfer and/or card channels.
+· Show transaction history with date, amount, status, reference and transaction type.
+· Provide receipts and clear pending, successful, reversed and failed states.
+· Do not imply wallet funds are bank deposits or deposit-insured unless the actual legal structure supports that claim.
+
+6.4 Savings Module
+
+The Save area supports three savings products. Product rates, minimums, maximums, fees, access restrictions and
+partner arrangements must be configured and disclosed before a user creates a plan.
+
+Flexible Savings
+
+· Create a named savings plan and deposit an initial amount.
+· Allow additional deposits at any time, subject to product limits.
+· Allow withdrawals according to the displayed product rules and available balance.
+· Display the applicable variable rate, calculation method and interest-crediting frequency, if interest is offered.
+
+Fixed Savings
+
+· Create a plan using a one-time deposit and a selected lock period (illustrative options: 30, 60, 90 or 180 days).
+· Display the rate, maturity date, projected payout and early-access rules before confirmation.
+· Prevent edits to locked principal and tenure after activation, unless the product terms explicitly allow them.
+· At maturity, make principal and applicable returns available according to the disclosed payout process.
+
+Target Savings
+
+· Create a goal with a name, target amount and target date.
+· Support manual contributions and scheduled automatic contributions where the funding mandate is supported.
+· Allow users to see progress, remaining amount and contribution history.
+· Provide clear rules for pausing auto-save, missed contributions, early access and any interest or charges.
+Acceptance criteria
+· Balances and transaction records reconcile with the ledger and update promptly after confirmed transactions.
+· Users see a plan summary and applicable terms before confirming.
+· The app never describes a rate or return as guaranteed unless legally and contractually guaranteed.
+
+6.5 Withdrawals & Transfers
+
+· Withdraw eligible wallet funds to a verified, supported Nigerian bank account.
+· Support wallet-to-wallet transfers only where the service is enabled and permitted.
+· Confirm sensitive actions using PIN and/or biometrics, with additional verification when required.
+
+APEX FINANCE | PRODUCT REQUIREMENTS DOCUMENT  Page 5
+· Show fees, limits and estimated processing time before confirmation.
+Edge cases
+· Insufficient available balance.
+· Incorrect or unsupported beneficiary details.
+· Bank or payment-network downtime.
+· Pending, failed, reversed or delayed transfer.
+· Duplicate submission or timeout after a transaction request.
+Every transaction must have a unique reference and a clear status. A timeout must not cause a user to unknowingly
+submit duplicate transfers.
+
+6.6 Investment / Shares Module
+
+· List eligible companies and instruments available through the licensed investment partner.
+· Display price, currency, market status, timestamp or delay indicator, and relevant company information.
+· Support buy and sell orders according to broker/exchange capabilities.
+· Support fractional investing only if the broker, custodian, market structure and applicable rules permit it.
+· Show order status, trade confirmation, fees, taxes where applicable and settlement information.
+· Provide portfolio holdings, cost basis where available, current value and realised/unrealised performance where
+supported.
+· Provide risk disclosures and make clear that share prices can fall as well as rise.
+Nigeria implementation note: NGX-listed securities and any foreign securities must be offered through appropriately
+authorised capital-market operators and approved custody/settlement arrangements. Apex Finance must not imply
+that it is itself a broker, exchange or investment adviser unless duly authorised.
+
+7. Non-Functional Requirements
+
+7.1 Performance
+
+· Target app launch and primary-screen load time below three seconds under agreed test conditions.
+· Refresh investment prices within the service level agreed with the market-data provider; show timestamps and
+delays.
+· Use pagination or incremental loading for long histories and company lists.
+
+7.2 Security
+
+· Encrypt data in transit and at rest using current, industry-accepted standards.
+· Use role-based access control, least privilege, audit logs and secure secrets management.
+· Apply multi-factor or step-up authentication to sensitive actions.
+· Protect PINs and credentials using secure hashing and platform security controls; never store them in plaintext.
+· Conduct vulnerability testing, security reviews and incident-response exercises.
+
+7.3 Availability & Reliability
+
+· Initial availability target: 99.5%, excluding agreed maintenance windows and clearly defined third-party
+dependencies.
+· Use monitoring, backups, disaster recovery and reconciliation processes.
+· Define incident severity, escalation and customer communication procedures.
+
+APEX FINANCE | PRODUCT REQUIREMENTS DOCUMENT  Page 6
+7.4 Accessibility & Usability
+
+· Design mobile-first for common Android and iOS screen sizes.
+· Use readable text, sufficient contrast, clear focus states and accessible labels.
+· Use plain language and avoid unexplained financial jargon.
+· Support low-bandwidth and intermittent-connectivity conditions where practical.
+
+8. UX & UI Requirements
+
+· Mobile-first interface with persistent bottom navigation: Home, Save, Invest and Profile.
+· Use clear, descriptive calls to action and consistent confirmation patterns.
+· Show fees, rates, limits, risks and processing expectations before users commit.
+· Provide helpful empty, loading, success, pending and error states.
+· Use local currency formatting (s) for Nigeria and make currency explicit for investments.
+· Avoid misleading urgency, guaranteed-growth claims or dark patterns.
+
+9. Notifications
+
+· Transaction alerts for deposits, withdrawals, transfers and reversals.
+· Savings reminders and target-progress updates, where users have opted in.
+· Investment order and trade confirmations.
+· KYC status and action-required alerts.
+· Security alerts for new devices, credential changes and suspicious activity.
+· Allow users to manage non-essential notification preferences while retaining legally required or essential security
+notices.
+
+10. Admin & Back Office
+
+· User and KYC case management with permission controls.
+· Transaction monitoring, reconciliation and exception queues.
+· Savings-product configuration, subject to maker-checker approval.
+· Investment instrument/listing and market-data monitoring through partner integrations.
+· Fraud and suspicious-activity monitoring with escalation workflows.
+· Customer-support tools and complaint tracking.
+· Operational, financial, compliance and product analytics with audit trails.
+
+11. Compliance & Legal Considerations -- Nigeria First
+
+The final regulatory model depends on which entity legally provides each service. Apex Finance should obtain
+specialist advice and confirm the roles, licences and contractual responsibilities of all partners before launch.
+· CBN: Confirm whether wallet, payment, deposit-taking or other activities are provided by a CBN-licensed bank or
+payment service provider, and ensure Apex's own activities do not cross into regulated activity without authorisation.
+· SEC Nigeria: Share dealing, investment intermediation, portfolio services, custody and investment advice must be
+handled by appropriately registered or licensed capital-market operators as applicable.
+
+APEX FINANCE | PRODUCT REQUIREMENTS DOCUMENT  Page 7
+· NDPC / Nigeria Data Protection Act 2023: Establish a lawful basis for processing, privacy notices, data-subject
+request handling, retention schedules, processor contracts, security controls and breach-response procedures.
+
+· AML/CFT: Implement risk-based customer due diligence, transaction monitoring, sanctions screening and
+suspicious-activity escalation as applicable to the regulated entities and their obligations.
+
+· Consumer protection: Disclose fees, rates, product restrictions, complaint channels, transaction timelines and
+material service changes clearly.
+
+· Deposit protection: Do not use NDIC-protection claims or logos unless the relevant funds and partner arrangement
+are confirmed to qualify and the wording is approved.
+
+For expansion into other African countries, complete a separate country assessment covering local banking/payment
+rules, securities regulation, privacy law, consumer protection, tax, FX and cross-border transfer requirements.
+
+12. Dependencies & Integrations
+
+· Licensed banking and payment partners for wallet funding, transfers and settlement.
+· Payment gateway and bank-transfer infrastructure.
+· Approved identity-verification providers for KYC checks.
+· Licensed broker/capital-market operator, custodian and exchange connectivity for investments.
+· Market-data provider with clear real-time/delayed-data rights.
+· Messaging providers for OTP, email and push notifications.
+· Fraud monitoring, analytics, customer support and cloud infrastructure services.
+
+13. Risks & Mitigations
+
+Risk                         Mitigation
+Fraud and account takeover
+                             Strong identity checks, device/session controls, transaction monitoring, step-up
+Service or partner downtime  authentication and customer alerts.
+
+Low user trust               Redundant infrastructure, partner SLAs, monitoring, graceful pending states and
+                             reconciliation.
+Investment losses or
+misunderstanding             Transparent fees and rates, clear legal disclosures, responsive support and accurate
+Regulatory or licensing gap  transaction status.
+
+Data breach or misuse        Prominent risk warnings, beginner education, clear price timestamps and no
+                             guaranteed-return claims.
+
+                             Obtain legal advice, map each regulated activity and launch only through authorised
+                             entities.
+
+                             Data minimisation, encryption, access controls, vendor due diligence and incident
+                             response.
+
+14. Release Plan
+
+Phase 1 -- MVP
+
+· Account onboarding, authentication and KYC.
+· Wallet funding and transaction history.
+· Flexible, fixed and target savings.
+· Withdrawals and supported transfers.
+· Share discovery, trading and portfolio visibility through licensed partners.
+· Security, notifications, support and admin monitoring.
+
+APEX FINANCE | PRODUCT REQUIREMENTS DOCUMENT                                                                       Page 8
+Phase 2
+
+· Advanced savings and portfolio analytics.
+· Automated investing, subject to regulatory and partner approval.
+· Additional instruments or markets after due diligence.
+· Expansion to other African countries after local regulatory and operational readiness.
+
+15. Open Product Decisions
+
+· Confirm Nigeria-only launch scope and launch timeline.
+· Confirm whether the MVP offers NGX-listed shares only or also international securities.
+· Approve minimum/maximum savings amounts, rates, tenures, interest calculation and crediting rules.
+· Confirm wallet legal structure, safeguarding arrangements and customer-fund disclosures.
+· Confirm broker, custodian, banking and payment partners.
+· Define KYC tiers, limits, verification provider and escalation policy.
+· Confirm fees, tax treatment, settlement timelines and complaint-handling service levels.
+
+16. Product Acceptance & Launch Readiness
+
+· All money movements are ledgered, traceable, reconciled and idempotent.
+· All fees, rates, restrictions, maturity dates and investment risks are shown before confirmation.
+· KYC and transaction limits are enforced consistently across app and backend.
+· Failed and pending transactions have supportable resolution paths.
+· Security, privacy, compliance and partner reviews are completed before public launch.
+· Customer support, incident response, complaint handling and operational dashboards are ready.
+· App Store and Google Play descriptions accurately reflect the services and licensed-provider relationships.
+
+17. Key Disclaimers
+
+This PRD describes intended product functionality and does not constitute an offer to accept deposits, provide
+payment services, trade securities or provide investment advice. Actual products, rates, returns, fees, eligibility, limits,
+settlement arrangements and legal protections must match approved contracts and applicable law.
+Apex Finance should clearly identify the licensed institutions and capital-market operators responsible for each
+regulated service. Do not claim that funds are insured, guaranteed, risk-free or instantly available unless the claim is
+factually and legally supported.
+
+Appendix A -- Suggested MVP Screen Inventory
+
+· Welcome, sign-up, OTP verification and PIN setup.
+· KYC introduction, identity capture, selfie/liveness and verification status.
+· Home dashboard and wallet details.
+· Fund wallet, bank transfer instructions and transaction receipt.
+· Savings overview and create-plan flows for Flexible, Fixed and Target Savings.
+· Savings plan details, add money, withdrawal or early-access flow, and maturity state.
+· Bank withdrawal, beneficiary selection, review, PIN confirmation and result.
+
+APEX FINANCE | PRODUCT REQUIREMENTS DOCUMENT  Page 9
+· Invest home, company list, company detail, buy/sell order, order review and confirmation.
+· Portfolio overview, holdings and transaction history.
+· Profile, linked bank accounts, security, notification preferences, help, legal and logout.
+
+APEX FINANCE | PRODUCT REQUIREMENTS DOCUMENT                                                  Page 10
+

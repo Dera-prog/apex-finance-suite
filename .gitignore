@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Local QA screenshots and headless browser scratch dirs
+shots/
+.edge-*/
+
+# Qoder Sites local descriptors (generated, machine-specific)
+*.qoder.site
+
+# Secrets and local env
+.env
+.env.*
+.secrets/
+
+# Logs and OS cruft
+*.log
+.DS_Store
+Thumbs.db
