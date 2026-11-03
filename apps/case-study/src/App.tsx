@@ -618,7 +618,7 @@ const swatches = [
   ['Sky', '#A9CBFF', '#A9CBFF'],
   ['Lilac', '#F4CCF9', '#F4CCF9'],
   ['Mint', '#C3F3C6', '#C3F3C6'],
-  ['Peach', '#FFDCCE', '#FFDCCE'],
+  ['Red', '#F04438', '#F04438'],
 ];
 
 function System() {
@@ -748,7 +748,7 @@ function System() {
                   <span className="cs-comp-pill" style={{ background: 'rgba(244,204,249,.14)', color: '#F4CCF9' }}>
                     Fixed
                   </span>
-                  <span className="cs-comp-pill" style={{ background: 'rgba(255,220,206,.14)', color: '#FFDCCE' }}>
+                  <span className="cs-comp-pill" style={{ background: 'rgba(240,68,56,.16)', color: '#FF8A80' }}>
                     Risk
                   </span>
                 </div>
@@ -884,6 +884,42 @@ function Surfaces() {
               </div>
             </article>
           ))}
+        </div>
+
+        <div className="cs-demo reveal">
+          <div className="cs-demo-head">
+            <div>
+              <span className="cs-demo-tag">Recorded walkthrough · 0:23</span>
+              <h3>The desktop workspace, in motion.</h3>
+              <p>
+                Wallet, a new savings plan, a share order preview and the activity ledger — captured
+                from the running build, not a motion mockup.
+              </p>
+            </div>
+            <a
+              className="cs-demo-link"
+              href={launch(links.desktop, '#surfaces')}
+              {...external(links.desktop)}
+            >
+              Open the desktop app <ArrowUpRight size={14} />
+            </a>
+          </div>
+          <div className="cs-demo-player">
+            <video
+              controls
+              playsInline
+              preload="metadata"
+              poster="./assets/demo-poster.jpg"
+              aria-label="Recorded walkthrough of the Apex Finance desktop app"
+            >
+              <source src="./assets/demo.mp4" type="video/mp4" />
+              Your browser does not support embedded video.
+            </video>
+          </div>
+          <div className="cs-demo-foot">
+            <span>Demo data · no live money</span>
+            <span>1280 × 800 · captured from the production build</span>
+          </div>
         </div>
       </div>
     </section>
