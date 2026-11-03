@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownLeft,
   ArrowLeft,
@@ -36,7 +36,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { Avatar, ApexMark, Logo, Sparkline } from '@shared/ui';
+import { Avatar, ApexMark, Sparkline } from '@shared/ui';
 import {
   compactNaira,
   longDate,
@@ -993,30 +993,6 @@ function ProfileScreen({
 /* Onboarding and auth                                                 */
 /* ------------------------------------------------------------------ */
 
-const SLIDES = [
-  {
-    icon: PiggyBank,
-    tone: 'blue',
-    title: 'Save with a plan, not a promise',
-    body: 'Flexible, fixed and target savings in one place. Watch every naira move toward what matters.',
-    art: 'save',
-  },
-  {
-    icon: TrendingUp,
-    tone: 'green',
-    title: 'Own a slice of the market',
-    body: 'Buy NGX and US shares from ₦5,000, with prices, fees and FX shown before you confirm.',
-    art: 'invest',
-  },
-  {
-    icon: Wallet,
-    tone: 'purple',
-    title: 'Money that moves with you',
-    body: 'Fund your wallet, pay a tag, or withdraw to your bank. Receipts and limits stay clear.',
-    art: 'wallet',
-  },
-] as const;
-
 function AuthFlow({
   stage,
   setStage,
@@ -1026,7 +1002,6 @@ function AuthFlow({
   setStage: (s: Stage) => void;
   onDone: () => void;
 }) {
-  const [slide, setSlide] = useState(0);
   const [phone, setPhone] = useState('803 555 0147');
   const [code, setCode] = useState('');
   const [pin, setPin] = useState('');
@@ -1041,68 +1016,40 @@ function AuthFlow({
   }, [pin, onDone]);
 
   if (stage === 'welcome') {
-    const current = SLIDES[slide];
-    const Icon = current.icon;
     return (
       <div className="welcome">
-        <div className="welcome-glow one" />
-        <div className="welcome-glow two" />
-        <header className="welcome-brand">
-          <Logo tone="light" size={36} />
-          <button className="skip" onClick={() => setStage('auth')}>
-            Skip
-          </button>
-        </header>
+        <img className="welcome-img" src="./assets/editorial-cream.webp" alt="" />
 
-        <div className={`welcome-art ${current.tone}`}>
-          <span className="art-ring" />
-          <span className="art-icon">
-            <Icon size={54} strokeWidth={1.6} />
-          </span>
-          {current.art === 'save' && (
-            <span className="art-tag">Target · 49%</span>
-          )}
-          {current.art === 'invest' && (
-            <span className="art-chip">
-              <span className="tile" style={{ background: '#FFDCCE' }}>DA</span>
-              <span>
-                <b>Dangote Cement</b>
-                <em>+1.24% today</em>
-              </span>
-            </span>
-          )}
-          {current.art === 'wallet' && (
-            <span className="art-chip">
-              <span className="tile" style={{ background: '#C3F3C6' }}>AO</span>
-              <span>
-                <b>Sent to Chinedu</b>
-                <em>₦25,000 · instant</em>
-              </span>
-            </span>
-          )}
-        </div>
-
-        <div className="welcome-copy">
-          <h1>{current.title}</h1>
-          <p>{current.body}</p>
-        </div>
-
-        <div className="dots" aria-hidden="true">
-          {SLIDES.map((_, i) => (
-            <span key={i} className={i === slide ? 'on' : ''} />
-          ))}
-        </div>
-
-        <div className="welcome-actions">
-          <button
-            className="btn btn-white btn-block"
-            onClick={() => (slide < SLIDES.length - 1 ? setSlide(slide + 1) : setStage('auth'))}
-          >
-            {slide < SLIDES.length - 1 ? 'Next' : 'Get started'} <ArrowRight size={17} />
-          </button>
-          <button className="welcome-link" onClick={() => setStage('auth')}>
-            I already have an account
-          </button>
+        <div className="welcome-content">
+          <div className="welcome-brand">
+            <ApexMark size={30} />
+            <b>Apex Finance</b>
+          </div>
+          <h1>
+            Your money,
+            <br />
+            moving forward.
+          </h1>
+          <p>
+            Save steadily, access funds and own a piece of great companies — from one simple
+            app.
+          </p>
+          <div className="welcome-trust">
+            <div>
+              <ShieldCheck size={16} /> Identity-protected accounts
+            </div>
+            <div>
+              <Lock size={16} /> Clearly disclosed fees &amp; limits
+            </div>
+          </div>
+          <div className="welcome-cta">
+            <button type="button" className="primary" onClick={() => setStage('auth')}>
+              Create free account
+            </button>
+            <button type="button" className="ghost" onClick={() => setStage('auth')}>
+              Sign in
+            </button>
+          </div>
           <p className="welcome-note">Demo experience · no real money moves</p>
         </div>
       </div>
@@ -1301,22 +1248,27 @@ function Sheet({
   children: React.ReactNode;
   tall?: boolean;
 }) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close();
     };
+    const prev = document.activeElement as HTMLElement | null;
     document.addEventListener('keydown', onKey);
     document.body.classList.add('sheet-open');
+    sheetRef.current?.focus();
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.classList.remove('sheet-open');
+      prev?.focus?.();
     };
   }, [close]);
 
   return (
     <div className="sheet-wrap">
       <button className="scrim" aria-label="Close" onClick={close} />
-      <div className={`sheet ${tall ? 'tall' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={sheetRef} tabIndex={-1} className={`sheet ${tall ? 'tall' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <span className="grab" aria-hidden="true" />
         <header className="sheet-head">
           <div>
