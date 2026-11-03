@@ -670,7 +670,7 @@ function System() {
               </div>
               <div className="cs-money-line">
                 <span>Risk</span>
-                <b style={{ color: '#FFB4AB' }}>Loss · failed · destructive</b>
+                <b style={{ color: '#F04438' }}>Loss · failed · destructive</b>
               </div>
             </div>
           </div>
