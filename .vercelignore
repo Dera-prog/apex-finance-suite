@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.vercel
+shots
+.edge-*
+*.qoder.site
+.env
+.env.*
+.secrets
+*.log

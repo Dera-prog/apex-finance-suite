@@ -12,6 +12,9 @@ shots/
 # Qoder Sites local descriptors (generated, machine-specific)
 *.qoder.site
 
+# Vercel CLI link state
+.vercel/
+
 # Secrets and local env
 .env
 .env.*
