@@ -143,20 +143,30 @@ function useInstall() {
 }
 
 function Splash({ done }: { done: () => void }) {
+  const [second, setSecond] = useState(false);
   const [leaving, setLeaving] = useState(false);
   useEffect(() => {
-    const fade = window.setTimeout(() => setLeaving(true), 1500);
-    const end = window.setTimeout(done, 2100);
+    const swap = window.setTimeout(() => setSecond(true), 1150);
+    const fade = window.setTimeout(() => setLeaving(true), 2350);
+    const end = window.setTimeout(done, 2800);
     return () => {
+      window.clearTimeout(swap);
       window.clearTimeout(fade);
       window.clearTimeout(end);
     };
   }, [done]);
   return (
-    <div className={`splash${leaving ? ' leaving' : ''}`} aria-hidden="true">
-      <ApexMark size={58} />
-      <b>Apex Finance</b>
-      <span>Save. Access. Invest. Grow.</span>
+    <div
+      className={`splash${second ? ' phase-2' : ''}${leaving ? ' leaving' : ''}`}
+      aria-hidden="true"
+    >
+      <img className="splash-img" src="./assets/editorial-cream.webp" alt="" />
+      <img className="splash-img" src="./assets/hero-spheres.webp" alt="" />
+      <div className="splash-brand">
+        <ApexMark size={54} />
+        <b>Apex Finance</b>
+        <span>Save. Access. Invest. Grow.</span>
+      </div>
     </div>
   );
 }
