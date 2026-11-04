@@ -10,6 +10,17 @@
     <meta name="description" content="Apex Finance mobile — save with a plan, invest in Nigerian and US shares, and move money in seconds." />
     <title>Apex Finance — Mobile</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <script>
+      try {
+        var saved = JSON.parse(localStorage.getItem('apex.mobile.v1') || 'null');
+        var dark =
+          saved && saved.prefs && typeof saved.prefs.darkMode === 'boolean'
+            ? saved.prefs.darkMode
+            : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#050F2C' : '#F5F5F8');
+      } catch (e) {}
+    </script>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

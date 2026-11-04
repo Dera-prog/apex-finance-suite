@@ -49,6 +49,7 @@ export type AppState = {
   pinAlerts: boolean;
   emailAlerts: boolean;
   extHours: boolean;
+  darkMode: boolean;
 };
 
 const STORAGE_KEY = 'apex.desktop.v2';
@@ -56,6 +57,21 @@ const STORAGE_KEY = 'apex.desktop.v2';
 const usdHoldings = () => seedHoldings.filter((h) => h.symbol === 'NVDA' || h.symbol === 'AAPL');
 
 const seedProfile = (): Profile => ({ ...user, usStocksAccount: '••• ••• 4471' });
+
+const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+function seedPrefs() {
+  return {
+    biometric: true,
+    priceAlerts: true,
+    productNews: false,
+    hideBalance: false,
+    pinAlerts: true,
+    emailAlerts: true,
+    extHours: false,
+    darkMode: prefersDark(),
+  };
+}
 
 const seed = (): AppState => {
   const usdValue = usdHoldings().reduce((sum, h) => sum + h.units * h.price, 0);
@@ -71,13 +87,7 @@ const seed = (): AppState => {
     txns: seedTxns.map((t) => ({ ...t })),
     notifications: seedNotifications.map((n) => ({ ...n })),
     banks: seedBanks.map((b) => ({ ...b })),
-    biometric: true,
-    priceAlerts: true,
-    productNews: false,
-    hideBalance: false,
-    pinAlerts: true,
-    emailAlerts: true,
-    extHours: false,
+    ...seedPrefs(),
   };
 };
 
@@ -132,18 +142,6 @@ const freshAccount = (input: { name: string; email: string; phone: string }): Ap
   };
 };
 
-function seedPrefs() {
-  return {
-    biometric: true,
-    priceAlerts: true,
-    productNews: false,
-    hideBalance: false,
-    pinAlerts: true,
-    emailAlerts: true,
-    extHours: false,
-  };
-}
-
 function load(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -178,7 +176,7 @@ type Store = AppState & {
   planWithdraw: (id: string, amount: number) => TradeResult;
   trade: (symbol: string, units: number, side: 'buy' | 'sell') => TradeResult;
   markAllRead: () => void;
-  toggleSetting: (key: 'biometric' | 'priceAlerts' | 'productNews' | 'pinAlerts' | 'emailAlerts' | 'extHours') => void;
+  toggleSetting: (key: 'biometric' | 'priceAlerts' | 'productNews' | 'pinAlerts' | 'emailAlerts' | 'extHours' | 'darkMode') => void;
   toggleBalance: () => void;
   reset: () => void;
   startFresh: (input: { name: string; email: string; phone: string }) => void;
@@ -212,6 +210,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       /* storage may be unavailable; the demo still works in memory */
     }
   }, [state]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const dark = state.darkMode;
+    root.dataset.theme = dark ? 'dark' : 'light';
+    root.style.colorScheme = dark ? 'dark' : 'light';
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', dark ? '#050F2C' : '#F5F6F8');
+  }, [state.darkMode]);
 
   const notify = useCallback((message: string) => {
     setToast(message);
@@ -506,18 +514,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reset = useCallback(() => {
-    const fresh = seed();
-    setState(fresh);
+    setState((s) => ({ ...seed(), darkMode: s.darkMode }));
     notify('Demo account reset to its starting balances');
   }, [notify]);
 
   const startFresh = useCallback<Store['startFresh']>((input) => {
-    setState(freshAccount(input));
+    setState((s) => ({ ...freshAccount(input), darkMode: s.darkMode }));
     notify('Account created. Add money to get started.');
   }, [notify]);
 
   const signInDemo = useCallback(() => {
-    setState(seed());
+    setState((s) => ({ ...seed(), darkMode: s.darkMode }));
     notify('Signed in to the demo account');
   }, [notify]);
 

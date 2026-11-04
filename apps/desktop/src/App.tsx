@@ -1689,15 +1689,7 @@ function SettingsPage({
 }) {
   const s = useStore();
   const p = s.user;
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const sync = () => setDark(mq.matches);
-    sync();
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
-  }, []);
+  const dark = s.darkMode;
 
   const note = (title: string, body: string) => open({ type: 'info', title, body });
 
@@ -1856,15 +1848,15 @@ function SettingsPage({
                 </span>
                 <span className="menu-main">
                   <b>Dark Mode</b>
-                  <em>Dark mode on Apex Finance will be applied according to your device&apos;s preference</em>
+                  <em>Deep royal blue interface for low light. Applies to this device.</em>
                 </span>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={dark}
-                  aria-label="Dark mode follows your device preference"
+                  aria-label="Deep royal blue dark mode"
                   className={`switch${dark ? ' on' : ''}`}
-                  disabled
+                  onClick={() => s.toggleSetting('darkMode')}
                 />
               </div>
             </div>

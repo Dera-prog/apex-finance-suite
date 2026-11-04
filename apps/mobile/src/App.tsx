@@ -47,6 +47,7 @@ import {
   stocks,
   usd,
 } from '@shared/data';
+import type { CSSProperties } from 'react';
 import type { Plan, PlanKind, Txn } from '@shared/data';
 import { links, isLive } from '@shared/links';
 import { stockFor, useStore } from './store';
@@ -420,7 +421,7 @@ function HomeScreen({
               <button
                 key={plan.id}
                 className="plan-mini"
-                style={{ background: `linear-gradient(160deg, ${plan.pastel} 0%, #fff 62%)` }}
+                style={{ '--plan-tint': plan.pastel } as CSSProperties}
                 onClick={() => open({ type: 'plan', id: plan.id })}
               >
                 <span className="plan-mini-top">
@@ -761,7 +762,7 @@ function SaveScreen({ open }: { open: (o: Overlay) => void }) {
 function PlanCard({ plan, hide, onOpen }: { plan: Plan; hide: boolean; onOpen: () => void }) {
   const progress = plan.target ? progressPct(plan.balance, plan.target) : 100;
   return (
-    <article className="plan-card" style={{ background: `linear-gradient(155deg, ${plan.pastel}66 0%, #fff 48%)` }}>
+    <article className="plan-card" style={{ '--plan-tint': plan.pastel } as CSSProperties}>
       <button className="plan-card-top" onClick={onOpen} aria-label={`Open ${plan.name}`}>
         <span className="plan-icon" style={{ background: plan.pastel, color: plan.color }}>
           {planIcon(plan.icon)}
@@ -989,14 +990,7 @@ function ProfileScreen({
 }) {
   const s = useStore();
   const p = s.user;
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const sync = () => setDark(mq.matches);
-    sync();
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
-  }, []);
+  const dark = s.prefs.darkMode;
 
   const explore = [
     { label: 'Marketing website', href: links.website },
@@ -1157,14 +1151,14 @@ function ProfileScreen({
             </span>
             <span className="menu-main">
               <b>Dark Mode</b>
-              <em>Dark mode on Apex Finance will be applied according to your device&apos;s preference</em>
+              <em>Deep royal blue interface for low light. Applies to this device.</em>
             </span>
             <button
               role="switch"
               aria-checked={dark}
-              aria-label="Dark mode follows your device preference"
+              aria-label="Deep royal blue dark mode"
               className={`toggle ${dark ? 'on' : ''}`}
-              disabled
+              onClick={() => s.setPref('darkMode', !dark)}
             >
               <span />
             </button>
@@ -1831,7 +1825,7 @@ function PlanSheet({ id, close, open }: { id: string; close: () => void; open: (
 
   return (
     <Sheet title={plan.name} subtitle={`${kindLabel(plan.kind)} savings plan`} close={close} tall>
-      <div className="plan-hero" style={{ background: `linear-gradient(150deg, ${plan.pastel} 0%, #fff 90%)` }}>
+      <div className="plan-hero" style={{ '--plan-tint': plan.pastel } as CSSProperties}>
         <span className="plan-icon big" style={{ background: plan.color, color: '#fff' }}>
           {planIcon(plan.icon, 22)}
         </span>
@@ -2254,7 +2248,7 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
               key={k}
               type="button"
               className={`kind-card ${kind === k ? 'active' : ''}`}
-              style={kind === k ? { borderColor: color, background: `${pastel}77` } : undefined}
+              style={{ '--plan-tint': pastel } as CSSProperties}
               onClick={() => setKind(k)}
               aria-pressed={kind === k}
             >

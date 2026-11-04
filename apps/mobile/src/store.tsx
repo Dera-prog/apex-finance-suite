@@ -20,6 +20,7 @@ type Prefs = {
   pinAlerts: boolean;
   emailAlerts: boolean;
   extHours: boolean;
+  darkMode: boolean;
 };
 
 export type Profile = {
@@ -56,6 +57,19 @@ const STORAGE_KEY = 'apex.mobile.v1';
 
 const seedProfile = (): Profile => ({ ...user, usStocksAccount: '••• ••• 4471' });
 
+const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+const seedPrefs = (): Prefs => ({
+  biometric: true,
+  priceAlerts: true,
+  productNews: false,
+  hideBalance: false,
+  pinAlerts: true,
+  emailAlerts: true,
+  extHours: false,
+  darkMode: prefersDark(),
+});
+
 const seed = (): MobileState => ({
   account: 'seed',
   profile: seedProfile(),
@@ -66,7 +80,7 @@ const seed = (): MobileState => ({
   txns: seedTxns.map((t) => ({ ...t })),
   notifications: seedNotifications.map((n) => ({ ...n })),
   banks: seedBanks.map((b) => ({ ...b })),
-  prefs: { biometric: true, priceAlerts: true, productNews: false, hideBalance: false, pinAlerts: true, emailAlerts: true, extHours: false },
+  prefs: seedPrefs(),
 });
 
 const freshAccount = (input: { name: string; email: string; phone: string }): MobileState => {
@@ -114,7 +128,7 @@ const freshAccount = (input: { name: string; email: string; phone: string }): Mo
       },
     ],
     banks: [],
-    prefs: seed().prefs,
+    prefs: seedPrefs(),
   };
 };
 
@@ -187,6 +201,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       /* demo continues in memory when storage is unavailable */
     }
   }, [state]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const dark = state.prefs.darkMode;
+    root.dataset.theme = dark ? 'dark' : 'light';
+    root.style.colorScheme = dark ? 'dark' : 'light';
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', dark ? '#050F2C' : '#F5F5F8');
+  }, [state.prefs.darkMode]);
 
   const notify = useCallback((message: string) => {
     setToast(message);
@@ -475,20 +499,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reset = useCallback(() => {
-    setState(seed());
+    setState((s) => ({ ...seed(), prefs: { ...seedPrefs(), darkMode: s.prefs.darkMode } }));
     notify('Demo account reset to its starting balances');
   }, [notify]);
 
   const startFresh = useCallback<Store['startFresh']>(
     (input) => {
-      setState(freshAccount(input));
+      setState((s) => {
+        const next = freshAccount(input);
+        return { ...next, prefs: { ...next.prefs, darkMode: s.prefs.darkMode } };
+      });
       notify(`Welcome to Apex, ${input.name.trim().split(/\s+/)[0]}`);
     },
     [notify],
   );
 
   const signInDemo = useCallback(() => {
-    setState(seed());
+    setState((s) => ({ ...seed(), prefs: { ...seedPrefs(), darkMode: s.prefs.darkMode } }));
     notify('Signed in to the demo account');
   }, [notify]);
 
