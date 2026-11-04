@@ -78,7 +78,7 @@ const nav: { id: Page; label: string; icon: ReactNode }[] = [
   { id: 'savings', label: 'Savings', icon: <Target size={17} /> },
   { id: 'invest', label: 'Invest', icon: <LineChart size={17} /> },
   { id: 'activity', label: 'Activity', icon: <ArrowLeftRight size={17} /> },
-  { id: 'settings', label: 'Settings', icon: <Settings size={17} /> },
+  { id: 'settings', label: 'Profile', icon: <Settings size={17} /> },
 ];
 
 const planIcon = (icon: string) =>
