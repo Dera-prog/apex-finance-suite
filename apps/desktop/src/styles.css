@@ -3152,6 +3152,11 @@ html[data-theme='dark'] .kyc-steps li {
   border-bottom-color: var(--line);
 }
 
+html[data-theme='dark'] .kyc-tick {
+  background: var(--blue-600);
+  color: #fff;
+}
+
 html[data-theme='dark'] .profile-big {
   border-bottom-color: var(--line);
 }
