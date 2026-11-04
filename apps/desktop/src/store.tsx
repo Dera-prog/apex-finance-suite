@@ -12,7 +12,27 @@ import {
 } from '@shared/data';
 import type { Bank, Holding, Notification, Plan, PlanKind, Txn } from '@shared/data';
 
+export type Profile = {
+  name: string;
+  firstName: string;
+  initials: string;
+  phone: string;
+  email: string;
+  bvn: string;
+  nin: string;
+  kycLevel: 1 | 2;
+  kycLabel: string;
+  address: string;
+  memberSince: string;
+  bank: string;
+  bankAccount: string;
+  usStocksAccount: string;
+  avatarTint: string;
+};
+
 export type AppState = {
+  account: 'seed' | 'new';
+  profile: Profile;
   walletNgn: number;
   walletUsd: number;
   investmentsNgn: number;
@@ -25,15 +45,23 @@ export type AppState = {
   biometric: boolean;
   priceAlerts: boolean;
   productNews: boolean;
+  hideBalance: boolean;
+  pinAlerts: boolean;
+  emailAlerts: boolean;
+  extHours: boolean;
 };
 
 const STORAGE_KEY = 'apex.desktop.v2';
 
 const usdHoldings = () => seedHoldings.filter((h) => h.symbol === 'NVDA' || h.symbol === 'AAPL');
 
+const seedProfile = (): Profile => ({ ...user, usStocksAccount: '••• ••• 4471' });
+
 const seed = (): AppState => {
   const usdValue = usdHoldings().reduce((sum, h) => sum + h.units * h.price, 0);
   return {
+    account: 'seed',
+    profile: seedProfile(),
     walletNgn: wallet.ngn,
     walletUsd: wallet.usd,
     investmentsNgn: wallet.investments,
@@ -46,8 +74,75 @@ const seed = (): AppState => {
     biometric: true,
     priceAlerts: true,
     productNews: false,
+    hideBalance: false,
+    pinAlerts: true,
+    emailAlerts: true,
+    extHours: false,
   };
 };
+
+const freshAccount = (input: { name: string; email: string; phone: string }): AppState => {
+  const name = input.name.trim();
+  const firstName = name.split(/\s+/)[0] || 'Friend';
+  const initials = name
+    .split(/\s+/)
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  return {
+    account: 'new',
+    profile: {
+      name,
+      firstName,
+      initials,
+      phone: input.phone.trim(),
+      email: input.email.trim(),
+      bvn: 'Not verified',
+      nin: 'Not verified',
+      kycLevel: 1,
+      kycLabel: 'Level 1 · Phone verified',
+      address: 'Not added yet',
+      memberSince: new Date().toLocaleDateString('en-NG', { month: 'long', year: 'numeric' }),
+      bank: 'No bank linked',
+      bankAccount: '',
+      usStocksAccount: 'Not issued yet',
+      avatarTint: '#FFDCCE',
+    },
+    walletNgn: 0,
+    walletUsd: 0,
+    investmentsNgn: 0,
+    investmentsUsd: 0,
+    plans: [],
+    holdings: [],
+    txns: [],
+    notifications: [
+      {
+        id: 'nt-welcome',
+        title: 'Welcome to Apex',
+        body: 'Add money to activate your wallet and start saving or investing.',
+        time: new Date().toISOString(),
+        kind: 'kyc',
+        unread: true,
+      },
+    ],
+    banks: [],
+    ...seedPrefs(),
+  };
+};
+
+function seedPrefs() {
+  return {
+    biometric: true,
+    priceAlerts: true,
+    productNews: false,
+    hideBalance: false,
+    pinAlerts: true,
+    emailAlerts: true,
+    extHours: false,
+  };
+}
 
 function load(): AppState {
   try {
@@ -55,7 +150,13 @@ function load(): AppState {
     if (!raw) return seed();
     const parsed = JSON.parse(raw) as Partial<AppState>;
     if (typeof parsed.walletNgn !== 'number' || !Array.isArray(parsed.plans)) return seed();
-    return { ...seed(), ...parsed };
+    const base = seed();
+    return {
+      ...base,
+      ...parsed,
+      account: parsed.account ?? 'seed',
+      profile: { ...base.profile, ...parsed.profile },
+    };
   } catch {
     return seed();
   }
@@ -77,9 +178,12 @@ type Store = AppState & {
   planWithdraw: (id: string, amount: number) => TradeResult;
   trade: (symbol: string, units: number, side: 'buy' | 'sell') => TradeResult;
   markAllRead: () => void;
-  toggleSetting: (key: 'biometric' | 'priceAlerts' | 'productNews') => void;
+  toggleSetting: (key: 'biometric' | 'priceAlerts' | 'productNews' | 'pinAlerts' | 'emailAlerts' | 'extHours') => void;
+  toggleBalance: () => void;
   reset: () => void;
-  user: typeof user;
+  startFresh: (input: { name: string; email: string; phone: string }) => void;
+  signInDemo: () => void;
+  user: Profile;
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -407,6 +511,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     notify('Demo account reset to its starting balances');
   }, [notify]);
 
+  const startFresh = useCallback<Store['startFresh']>((input) => {
+    setState(freshAccount(input));
+    notify('Account created. Add money to get started.');
+  }, [notify]);
+
+  const signInDemo = useCallback(() => {
+    setState(seed());
+    notify('Signed in to the demo account');
+  }, [notify]);
+
+  const toggleBalance = useCallback(() => {
+    setState((s) => ({ ...s, hideBalance: !s.hideBalance }));
+  }, []);
+
   const savings = useMemo(() => state.plans.reduce((sum, p) => sum + p.balance, 0), [state.plans]);
   const investmentValue = useMemo(
     () =>
@@ -421,7 +539,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Store>(
     () => ({
       ...state,
-      user,
+      user: state.profile,
       total: state.walletNgn + savings + state.investmentsNgn,
       savings,
       investmentValue,
@@ -436,9 +554,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       trade,
       markAllRead,
       toggleSetting,
+      toggleBalance,
       reset,
+      startFresh,
+      signInDemo,
     }),
-    [state, savings, investmentValue, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, toggleSetting, reset],
+    [state, savings, investmentValue, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, toggleSetting, toggleBalance, reset, startFresh, signInDemo],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
