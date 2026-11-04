@@ -3423,7 +3423,13 @@ html[data-theme='dark'] .kyc-steps li {
 }
 
 html[data-theme='dark'] .kyc-steps li.done {
-  background: #0e2b21;
+  background: var(--blue-600);
+  color: #fff;
+}
+
+html[data-theme='dark'] .kyc-tick {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
 }
 
 html[data-theme='dark'] .account-logout {
