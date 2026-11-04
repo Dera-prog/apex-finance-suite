@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownLeft,
   ArrowLeft,
@@ -6,21 +6,20 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Bell,
-  BellRing,
   ChartNoAxesCombined,
   Check,
+  ChevronDown,
   ChevronRight,
+  Clock,
   Download,
   Eye,
   EyeOff,
-  FileText,
-  Fingerprint,
   Home,
   Info,
   Landmark,
   Lock,
-  LogOut,
   Minus,
+  Moon,
   PiggyBank,
   Plus,
   RefreshCw,
@@ -67,7 +66,9 @@ type Overlay =
   | { type: 'receipt'; txn: Txn }
   | { type: 'kyc' }
   | { type: 'banks' }
-  | { type: 'install' };
+  | { type: 'install' }
+  | { type: 'account' }
+  | { type: 'info'; title: string; body: string };
 
 type Stage = 'welcome' | 'auth' | 'otp' | 'pin' | 'app';
 
@@ -83,7 +84,6 @@ type InstallCtx = {
   prompt: () => Promise<boolean>;
 };
 
-const SESSION_KEY = 'apex.mobile.session';
 const TODAY = new Date();
 
 const maskAmount = (hide: boolean, value: string) => (hide ? '••••••' : value);
@@ -141,18 +141,32 @@ function useInstall() {
   return value;
 }
 
+function Splash({ done }: { done: () => void }) {
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    const fade = window.setTimeout(() => setLeaving(true), 1500);
+    const end = window.setTimeout(done, 2100);
+    return () => {
+      window.clearTimeout(fade);
+      window.clearTimeout(end);
+    };
+  }, [done]);
+  return (
+    <div className={`splash${leaving ? ' leaving' : ''}`} aria-hidden="true">
+      <ApexMark size={58} />
+      <b>Apex Finance</b>
+      <span>Save. Access. Invest. Grow.</span>
+    </div>
+  );
+}
+
 export default function App() {
-  const [stage, setStage] = useState<Stage>(() => (localStorage.getItem(SESSION_KEY) === 'on' ? 'app' : 'welcome'));
+  const [stage, setStage] = useState<Stage>('welcome');
+  const [splash, setSplash] = useState(true);
   const install = useInstall();
 
-  const begin = () => {
-    localStorage.setItem(SESSION_KEY, 'on');
-    setStage('app');
-  };
-  const signOut = () => {
-    localStorage.removeItem(SESSION_KEY);
-    setStage('welcome');
-  };
+  const begin = () => setStage('app');
+  const signOut = () => setStage('welcome');
 
   return (
     <div className="app">
@@ -161,6 +175,7 @@ export default function App() {
       ) : (
         <AuthFlow stage={stage} setStage={setStage} onDone={begin} />
       )}
+      {splash && <Splash done={() => setSplash(false)} />}
     </div>
   );
 }
@@ -172,11 +187,37 @@ function Main({ install, onSignOut }: { install: InstallCtx; onSignOut: () => vo
   const [bannerDismissed, setBannerDismissed] = useState(
     () => localStorage.getItem('apex.mobile.installDismissed') === 'on',
   );
+  const historyPushed = useRef(false);
 
-  const open = (next: Overlay) => setOverlay(next);
-  const close = () => setOverlay(null);
-  const goTab = (next: Tab) => {
+  useEffect(() => {
+    const onPop = () => {
+      if (historyPushed.current) {
+        historyPushed.current = false;
+        setOverlay(null);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const open = useCallback((next: Overlay) => {
+    if (!historyPushed.current) {
+      window.history.pushState({ apexSheet: true }, '');
+      historyPushed.current = true;
+    }
+    setOverlay(next);
+  }, []);
+
+  const close = useCallback(() => {
     setOverlay(null);
+    if (historyPushed.current) {
+      historyPushed.current = false;
+      window.history.back();
+    }
+  }, []);
+
+  const goTab = (next: Tab) => {
+    close();
     setTab(next);
   };
 
@@ -187,15 +228,18 @@ function Main({ install, onSignOut }: { install: InstallCtx; onSignOut: () => vo
 
   return (
     <>
-      {tab === 'home' && (
-        <HomeScreen
-          open={open}
-          goTab={goTab}
-          install={install}
-          showBanner={!bannerDismissed && !install.installed && (install.available || install.isIos)}
-          dismissBanner={dismissBanner}
-        />
-      )}
+      {tab === 'home' &&
+        (s.account === 'new' ? (
+          <NewHome open={open} goTab={goTab} install={install} />
+        ) : (
+          <HomeScreen
+            open={open}
+            goTab={goTab}
+            install={install}
+            showBanner={!bannerDismissed && !install.installed && (install.available || install.isIos)}
+            dismissBanner={dismissBanner}
+          />
+        ))}
       {tab === 'save' && <SaveScreen open={open} />}
       {tab === 'invest' && <InvestScreen open={open} />}
       {tab === 'profile' && <ProfileScreen open={open} onSignOut={onSignOut} install={install} />}
@@ -227,7 +271,7 @@ function Main({ install, onSignOut }: { install: InstallCtx; onSignOut: () => vo
         </div>
       )}
 
-      {overlay && <OverlayView overlay={overlay} open={open} close={close} install={install} />}
+      {overlay && <OverlayView overlay={overlay} open={open} close={close} install={install} onSignOut={onSignOut} />}
     </>
   );
 }
@@ -452,11 +496,11 @@ function HomeScreen({
         </div>
         <div className="rows card">
           {s.txns.slice(0, 4).map((t) => {
-            const positive = t.amount > 0;
+            const credited = t.amount > 0 && t.status !== 'Failed';
             return (
               <button key={t.id} className="row txn-row" onClick={() => open({ type: 'receipt', txn: t })}>
-                <span className={`row-icon ${positive ? 'in' : 'out'} ${t.status === 'Failed' ? 'failed' : ''}`}>
-                  {t.status === 'Failed' ? <X size={16} /> : positive ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}
+                <span className={`row-icon ${credited ? 'in' : 'out'} ${t.status === 'Failed' ? 'failed' : ''}`}>
+                  {t.status === 'Failed' ? <X size={16} /> : credited ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}
                 </span>
                 <span className="row-main">
                   <span className="row-title">{t.title}</span>
@@ -464,10 +508,167 @@ function HomeScreen({
                     {t.status === 'Failed' ? <em className="failed-text">Failed</em> : shortDate(t.date)} · {t.meta}
                   </span>
                 </span>
-                <span className={`txn-amount ${positive ? 'up' : ''}`}>{positive ? '+' : '−'}{ngn(Math.abs(t.amount))}</span>
+                <span className={`txn-amount ${credited ? 'up' : ''}${t.status === 'Failed' ? ' void' : ''}`}>
+                  {maskAmount(
+                    hide,
+                    t.status === 'Failed' ? ngn(Math.abs(t.amount)) : `${credited ? '+' : '−'}${ngn(Math.abs(t.amount))}`,
+                  )}
+                </span>
               </button>
             );
           })}
+        </div>
+      </section>
+
+      <button className="install-strip" onClick={() => open({ type: 'install' })}>
+        <Download size={18} />
+        <span>
+          <b>{install.installed ? 'Apex is installed' : 'Install the Apex app'}</b>
+          <em>{install.installed ? 'You are running the installed experience' : 'Add to your home screen in two taps'}</em>
+        </span>
+        <ChevronRight size={17} />
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* New account home                                                    */
+/* ------------------------------------------------------------------ */
+
+function NewHome({
+  open,
+  goTab,
+  install,
+}: {
+  open: (o: Overlay) => void;
+  goTab: (t: Tab) => void;
+  install: InstallCtx;
+}) {
+  const s = useStore();
+  const hide = s.prefs.hideBalance;
+  const [cur, setCur] = useState<'NGN' | 'USD'>('NGN');
+  const unread = s.notifications.filter((n) => n.unread).length;
+  const movers = marketMovers.slice(0, 4);
+  const money = (value: number) => (cur === 'USD' ? usd(value) : ngn(value));
+  const total = cur === 'USD' ? s.walletUsd + s.investUsd : s.walletNgn + s.savings + s.investNgn;
+  const savingsValue = cur === 'USD' ? 0 : s.savings;
+  const investValue = cur === 'USD' ? s.investUsd : s.investNgn;
+
+  return (
+    <div className="screen home">
+      <header className="screen-head home-head">
+        <button className="who" onClick={() => goTab('profile')}>
+          <Avatar initials={s.user.initials} tint={s.user.avatarTint} size={42} ring />
+          <span>
+            <b>{s.user.name}</b>
+            <em>{s.user.kycLabel}</em>
+          </span>
+          <ChevronDown size={16} />
+        </button>
+        <button className="icon-btn bell" aria-label="Notifications" onClick={() => open({ type: 'notifications' })}>
+          <Bell size={20} />
+          {unread > 0 && <span className="dot">{unread}</span>}
+        </button>
+      </header>
+
+      <section className="hero" aria-label="Total balance">
+        <div className="hero-top">
+          <button
+            className="hero-cur"
+            aria-label={`Show balances in ${cur === 'NGN' ? 'US dollars' : 'naira'}`}
+            onClick={() => setCur(cur === 'NGN' ? 'USD' : 'NGN')}
+          >
+            Total balance in {cur} <ChevronDown size={14} />
+          </button>
+          <button
+            className="eye"
+            aria-label={hide ? 'Show balances' : 'Hide balances'}
+            onClick={() => s.setPref('hideBalance', !hide)}
+          >
+            {hide ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
+        </div>
+        <div className="hero-amount">{maskAmount(hide, money(total))}</div>
+        <div className="hero-stats two">
+          <div>
+            <span>Savings</span>
+            <b>{maskAmount(hide, money(savingsValue))}</b>
+          </div>
+          <div>
+            <span>Investments</span>
+            <b>{maskAmount(hide, money(investValue))}</b>
+          </div>
+        </div>
+        <div className="hero-actions">
+          <button className="hero-btn soft" onClick={() => open({ type: 'money', mode: 'add' })}>
+            <Plus size={17} /> Add money
+          </button>
+          <button className="hero-btn dark" onClick={() => open({ type: 'money', mode: 'withdraw' })}>
+            <Minus size={17} /> Withdraw
+          </button>
+        </div>
+      </section>
+
+      <div className="points-strip">
+        <span className="points-icon">
+          <Sparkles size={18} />
+        </span>
+        <div>
+          <b>Welcome to Apex</b>
+          <span>Add money to activate savings and investing.</span>
+        </div>
+        <button className="link-btn" onClick={() => open({ type: 'kyc' })}>
+          Verify
+        </button>
+      </div>
+
+      <section className="block">
+        <div className="section-head">
+          <h2>Market movers</h2>
+          <button className="link-btn" onClick={() => goTab('invest')}>
+            See market <ChevronRight size={14} />
+          </button>
+        </div>
+        <div className="rows card">
+          {movers.map((m) => (
+            <button key={m.symbol} className="row" onClick={() => open({ type: 'stock', symbol: m.symbol })}>
+              <span className="tile" style={{ background: stockTint(m.symbol) }}>
+                {m.symbol.slice(0, 2)}
+              </span>
+              <span className="row-main">
+                <span className="row-title">{m.name}</span>
+                <span className="row-sub">
+                  {m.symbol} · {m.currency === 'USD' ? 'NASDAQ' : 'NGX'}
+                </span>
+              </span>
+              <Sparkline
+                data={stocks.find((s) => s.symbol === m.symbol)?.spark ?? [1, 2, 3]}
+                width={56}
+                height={26}
+                stroke={m.change >= 0 ? '#0B8A13' : '#D92D20'}
+                fill={false}
+                strokeWidth={1.8}
+              />
+              <span className="row-end">
+                <b>{priceText(m.currency, m.price)}</b>
+                <span className={m.change >= 0 ? 'delta up' : 'delta down'}>{pct(m.change, 2)}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="block">
+        <div className="section-head">
+          <h2>Recent activity</h2>
+        </div>
+        <div className="empty-card">
+          <span className="empty-icon">
+            <Clock size={20} />
+          </span>
+          <b>No activity yet</b>
+          <p>Deposits, transfers and trades will appear here once you start moving money.</p>
         </div>
       </section>
 
@@ -518,12 +719,11 @@ function SaveScreen({ open }: { open: (o: Overlay) => void }) {
         </div>
       </section>
 
-      <div className="segmented" role="tablist" aria-label="Plan type">
+      <div className="segmented" role="group" aria-label="Filter plans by type">
         {(['all', 'flexible', 'fixed', 'target'] as const).map((k) => (
           <button
             key={k}
-            role="tab"
-            aria-selected={filter === k}
+            aria-pressed={filter === k}
             className={filter === k ? 'seg active' : 'seg'}
             onClick={() => setFilter(k)}
           >
@@ -643,17 +843,13 @@ function InvestScreen({ open }: { open: (o: Overlay) => void }) {
 
       <section className="invest-card">
         <div className="invest-top">
-          <span>Portfolio value</span>
+          <span>NGX portfolio</span>
           <span className="hero-chip dark">
             <TrendingUp size={13} /> {pct(4.8)}
           </span>
         </div>
         <b className="invest-total">{maskAmount(hide, ngn(s.investNgn))}</b>
-        <div className="invest-split">
-          <div>
-            <span>NGX</span>
-            <b>{maskAmount(hide, ngn(s.investNgn))}</b>
-          </div>
+        <div className="invest-split two">
           <div>
             <span>US shares</span>
             <b>{maskAmount(hide, usd(s.investUsd))}</b>
@@ -665,11 +861,19 @@ function InvestScreen({ open }: { open: (o: Overlay) => void }) {
         </div>
       </section>
 
-      <div className="segmented">
-        <button className={view === 'portfolio' ? 'seg active' : 'seg'} onClick={() => setView('portfolio')}>
+      <div className="segmented" role="group" aria-label="Invest view">
+        <button
+          aria-pressed={view === 'portfolio'}
+          className={view === 'portfolio' ? 'seg active' : 'seg'}
+          onClick={() => setView('portfolio')}
+        >
           Portfolio
         </button>
-        <button className={view === 'market' ? 'seg active' : 'seg'} onClick={() => setView('market')}>
+        <button
+          aria-pressed={view === 'market'}
+          className={view === 'market' ? 'seg active' : 'seg'}
+          onClick={() => setView('market')}
+        >
           Market
         </button>
       </div>
@@ -784,13 +988,25 @@ function ProfileScreen({
   install: InstallCtx;
 }) {
   const s = useStore();
+  const p = s.user;
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const sync = () => setDark(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
   const explore = [
     { label: 'Marketing website', href: links.website },
     { label: 'Desktop workspace', href: links.desktop },
     { label: 'Case study', href: links.caseStudy },
   ].filter((l) => isLive(l.href));
 
-  const toggle = (key: 'biometric' | 'priceAlerts' | 'hideBalance' | 'productNews') => (
+  const note = (title: string, body: string) => open({ type: 'info', title, body });
+
+  const toggle = (key: keyof typeof s.prefs) => (
     <button
       role="switch"
       aria-checked={s.prefs[key]}
@@ -802,69 +1018,130 @@ function ProfileScreen({
     </button>
   );
 
+  const kycSteps = [
+    { label: 'Phone Verified', done: true },
+    { label: 'ID Verified', done: p.kycLevel === 2 },
+    { label: 'Selfie Verification', done: false },
+  ];
+
   return (
     <div className="screen">
       <header className="screen-head">
-        <h1 className="screen-title">Profile</h1>
+        <div>
+          <p className="eyebrow">Profile</p>
+          <h1 className="screen-title">Your account</h1>
+        </div>
         <button className="icon-btn" aria-label="Notifications" onClick={() => open({ type: 'notifications' })}>
           <Bell size={20} />
         </button>
       </header>
 
-      <section className="profile-card">
-        <Avatar initials={s.user.initials} tint={s.user.avatarTint} size={58} ring />
-        <div>
-          <b>{s.user.name}</b>
-          <span>{s.user.phone}</span>
-          <span className="verified">
-            <BadgeCheck size={14} /> {s.user.kycLabel}
-          </span>
+      <button className="profile-card as-btn" onClick={() => open({ type: 'account' })}>
+        <Avatar initials={p.initials} tint={p.avatarTint} size={54} ring />
+        <span className="profile-main">
+          <b>{p.name}</b>
+          <em>{p.phone}</em>
+        </span>
+        <ChevronRight size={18} />
+      </button>
+
+      <section className="kyc-card" aria-label="KYC verification">
+        <div className="kyc-head">
+          <b>KYC Verification</b>
+          <span className="kyc-badge">{p.kycLevel === 2 ? 'level 2' : 'level 1'}</span>
         </div>
+        <ul className="kyc-steps">
+          {kycSteps.map((step) => (
+            <li key={step.label} className={step.done ? 'done' : ''}>
+              <span>{step.label}</span>
+              {step.done ? (
+                <span className="kyc-tick">
+                  <Check size={12} />
+                </span>
+              ) : (
+                <span className="kyc-pending" aria-hidden="true" />
+              )}
+            </li>
+          ))}
+        </ul>
+        <button className="btn btn-primary btn-block btn-sm" onClick={() => open({ type: 'kyc' })}>
+          Complete Verification
+        </button>
       </section>
 
-      <div className="points-strip">
-        <span className="points-icon">
-          <Sparkles size={18} />
-        </span>
-        <div>
-          <b>{s.user.kycLevel === 2 ? 'Level 2 account' : 'Apex account'}</b>
-          <span>Full wallet, savings and investing enabled</span>
+      <div className="menu-group">
+        <h3>Bio Data</h3>
+        <div className="menu">
+          <button className="menu-row" onClick={() => open({ type: 'account' })}>
+            <span className="menu-main">
+              <b>Account Details</b>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+          <button
+            className="menu-row"
+            onClick={() =>
+              note(
+                'Security Settings',
+                'PIN, biometrics and device controls are part of the live build. This demo keeps your settings on this device only.',
+              )
+            }
+          >
+            <span className="menu-main">
+              <b>Security Settings</b>
+            </span>
+            <ChevronRight size={17} />
+          </button>
         </div>
-        <button className="link-btn" onClick={() => open({ type: 'kyc' })}>
-          View
-        </button>
       </div>
 
       <div className="menu-group">
         <h3>Account</h3>
         <div className="menu">
-          <button className="menu-row" onClick={() => open({ type: 'kyc' })}>
-            <span className="menu-icon blue">
-              <ShieldCheck size={18} />
-            </span>
-            <span className="menu-main">
-              <b>Identity verification</b>
-              <em>Level 2 · limits raised</em>
-            </span>
-            <ChevronRight size={17} />
-          </button>
-          <button className="menu-row" onClick={() => open({ type: 'banks' })}>
-            <span className="menu-icon purple">
-              <Landmark size={18} />
-            </span>
-            <span className="menu-main">
-              <b>Linked banks</b>
-              <em>{s.banks.length} accounts · {s.user.bankAccount} primary</em>
-            </span>
-            <ChevronRight size={17} />
-          </button>
           <button className="menu-row" onClick={() => open({ type: 'activity' })}>
-            <span className="menu-icon green">
-              <FileText size={18} />
-            </span>
             <span className="menu-main">
-              <b>Activity & receipts</b>
-              <em>Every movement and reference</em>
+              <b>Account Statements</b>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+          <div className="menu-row static">
+            <span className="menu-main">
+              <b>Manage Transaction PIN</b>
+              <em>Get transaction alerts</em>
+            </span>
+            {toggle('pinAlerts')}
+          </div>
+          <div className="menu-row static">
+            <span className="menu-main">
+              <b>Push &amp; Email Notification</b>
+              <em>Weekly Summaries</em>
+            </span>
+            {toggle('emailAlerts')}
+          </div>
+        </div>
+      </div>
+
+      <div className="menu-group">
+        <h3>Trade &amp; Documentation</h3>
+        <div className="menu">
+          <div className="menu-row static">
+            <span className="menu-main">
+              <b>Extend Trading Hours</b>
+              <em>Place orders outside regular market hours</em>
+            </span>
+            {toggle('extHours')}
+          </div>
+          <button
+            className="menu-row"
+            onClick={() =>
+              note(
+                'Trade Confirmations',
+                'Contract notes for each executed order are generated in the live product. This demo shows them as receipts in Activity.',
+              )
+            }
+          >
+            <span className="menu-main">
+              <b>Trade Confirmations</b>
             </span>
             <ChevronRight size={17} />
           </button>
@@ -872,38 +1149,89 @@ function ProfileScreen({
       </div>
 
       <div className="menu-group">
-        <h3>Security & preferences</h3>
+        <h3>Appearance</h3>
         <div className="menu">
           <div className="menu-row static">
-            <span className="menu-icon blue">
-              <Fingerprint size={18} />
-            </span>
-            <span className="menu-main">
-              <b>Biometric confirmation</b>
-              <em>Face or fingerprint before money moves</em>
-            </span>
-            {toggle('biometric')}
-          </div>
-          <div className="menu-row static">
-            <span className="menu-icon peach">
-              <BellRing size={18} />
-            </span>
-            <span className="menu-main">
-              <b>Price alerts</b>
-              <em>Notify me when a holding moves 3%</em>
-            </span>
-            {toggle('priceAlerts')}
-          </div>
-          <div className="menu-row static">
             <span className="menu-icon purple">
-              <EyeOff size={18} />
+              <Moon size={18} />
             </span>
             <span className="menu-main">
-              <b>Hide balances</b>
-              <em>Mask amounts across the app</em>
+              <b>Dark Mode</b>
+              <em>Dark mode on Apex Finance will be applied according to your device&apos;s preference</em>
             </span>
-            {toggle('hideBalance')}
+            <button
+              role="switch"
+              aria-checked={dark}
+              aria-label="Dark mode follows your device preference"
+              className={`toggle ${dark ? 'on' : ''}`}
+              disabled
+            >
+              <span />
+            </button>
           </div>
+        </div>
+      </div>
+
+      <div className="menu-group">
+        <h3>About Us</h3>
+        <div className="menu">
+          <button
+            className="menu-row"
+            onClick={() =>
+              note(
+                'Help & Support',
+                'Support runs 8am–8pm WAT in the live product. For this demo, your feedback shapes the next build.',
+              )
+            }
+          >
+            <span className="menu-main">
+              <b>Help &amp; Support</b>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+          <button
+            className="menu-row"
+            onClick={() =>
+              note(
+                'Terms & Conditions',
+                'Apex Finance is a portfolio concept, not a licensed financial institution. No real money moves in this demo.',
+              )
+            }
+          >
+            <span className="menu-main">
+              <b>Terms &amp; Conditions</b>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+          <button
+            className="menu-row"
+            onClick={() =>
+              note(
+                'Privacy Policy',
+                'This demo stores your balances and preferences in this browser only. Nothing is sent to a server.',
+              )
+            }
+          >
+            <span className="menu-main">
+              <b>Privacy Policy</b>
+            </span>
+            <ChevronRight size={17} />
+          </button>
+          <button
+            className="menu-row"
+            onClick={() => {
+              if (window.confirm('Reset the demo account to its starting balances?')) s.reset();
+            }}
+          >
+            <span className="menu-icon peach">
+              <RefreshCw size={18} />
+            </span>
+            <span className="menu-main">
+              <b>Reset demo data</b>
+              <em>Restore seeded balances and activity</em>
+            </span>
+            <ChevronRight size={17} />
+          </button>
         </div>
       </div>
 
@@ -944,45 +1272,9 @@ function ProfileScreen({
         </div>
       )}
 
-      <div className="menu-group">
-        <h3>About</h3>
-        <div className="menu">
-          <div className="menu-row static">
-            <span className="menu-icon blue">
-              <Info size={18} />
-            </span>
-            <span className="menu-main">
-              <b>Apex Finance demo</b>
-              <em>Not a licensed product. Sample balances and delayed prices.</em>
-            </span>
-          </div>
-          <button
-            className="menu-row"
-            onClick={() => {
-              if (window.confirm('Reset the demo account to its starting balances?')) s.reset();
-            }}
-          >
-            <span className="menu-icon peach">
-              <RefreshCw size={18} />
-            </span>
-            <span className="menu-main">
-              <b>Reset demo data</b>
-              <em>Restore seeded balances and activity</em>
-            </span>
-            <ChevronRight size={17} />
-          </button>
-          <button className="menu-row danger" onClick={onSignOut}>
-            <span className="menu-icon red">
-              <LogOut size={18} />
-            </span>
-            <span className="menu-main">
-              <b>Sign out</b>
-              <em>Return to the welcome screens</em>
-            </span>
-            <ChevronRight size={17} />
-          </button>
-        </div>
-      </div>
+      <button className="account-logout" onClick={onSignOut}>
+        Log Out
+      </button>
 
       <p className="version">Apex Finance · Mobile demo · v1.0</p>
     </div>
@@ -1002,23 +1294,42 @@ function AuthFlow({
   setStage: (s: Stage) => void;
   onDone: () => void;
 }) {
-  const [phone, setPhone] = useState('803 555 0147');
+  const store = useStore();
+  const [mode, setMode] = useState<'signup' | 'signin'>('signup');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
 
+  const startFreshRef = useRef(store.startFresh);
+  startFreshRef.current = store.startFresh;
+  const signInDemoRef = useRef(store.signInDemo);
+  signInDemoRef.current = store.signInDemo;
+
+  const go = (next: Stage) => {
+    setError('');
+    setPin('');
+    setStage(next);
+  };
+
   useEffect(() => {
     if (pin.length === 4) {
-      const timer = window.setTimeout(onDone, 260);
+      const timer = window.setTimeout(() => {
+        if (mode === 'signup') startFreshRef.current({ name, email, phone: `+234 ${phone.trim()}` });
+        else signInDemoRef.current();
+        onDone();
+      }, 260);
       return () => window.clearTimeout(timer);
     }
     return undefined;
-  }, [pin, onDone]);
+  }, [pin, mode, name, email, phone, onDone]);
 
   if (stage === 'welcome') {
     return (
       <div className="welcome">
-        <img className="welcome-img" src="./assets/editorial-cream.webp" alt="" />
+        <img className="welcome-img" src="./assets/hero-spheres.webp" alt="" />
 
         <div className="welcome-content">
           <div className="welcome-brand">
@@ -1031,7 +1342,7 @@ function AuthFlow({
             moving forward.
           </h1>
           <p>
-            Save steadily, access funds and own a piece of great companies — from one simple
+            Save steadily, access funds and own pieces of great companies — from one simple
             app.
           </p>
           <div className="welcome-trust">
@@ -1043,10 +1354,24 @@ function AuthFlow({
             </div>
           </div>
           <div className="welcome-cta">
-            <button type="button" className="primary" onClick={() => setStage('auth')}>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => {
+                setMode('signup');
+                go('auth');
+              }}
+            >
               Create free account
             </button>
-            <button type="button" className="ghost" onClick={() => setStage('auth')}>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                setMode('signin');
+                go('auth');
+              }}
+            >
               Sign in
             </button>
           </div>
@@ -1057,29 +1382,67 @@ function AuthFlow({
   }
 
   if (stage === 'auth') {
+    const signup = mode === 'signup';
     return (
       <div className="auth">
-        <button className="back" aria-label="Back" onClick={() => setStage('welcome')}>
+        <button className="back" aria-label="Back" onClick={() => go('welcome')}>
           <ArrowLeft size={20} />
         </button>
         <div className="auth-mark">
           <ApexMark size={46} />
         </div>
-        <h1>Create your Apex account</h1>
-        <p className="auth-sub">Use a Nigerian number. We will send a six-digit code to confirm it.</p>
+        <h1>{signup ? 'Create your Apex account' : 'Welcome back'}</h1>
+        <p className="auth-sub">
+          {signup
+            ? 'Use a Nigerian number. We will send a six-digit code to confirm it.'
+            : 'Sign in with the phone number registered on your Apex account. Demo: any number opens the returning demo account.'}
+        </p>
         <form
           className="auth-form"
           onSubmit={(e) => {
             e.preventDefault();
+            if (signup) {
+              if (name.trim().length < 2) {
+                setError('Tell us your full name.');
+                return;
+              }
+              if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+                setError('Enter a valid email address.');
+                return;
+              }
+            }
             const digits = phone.replace(/\D/g, '');
             if (digits.length < 10) {
               setError('Enter a valid Nigerian phone number.');
               return;
             }
-            setError('');
-            setStage('otp');
+            go('otp');
           }}
         >
+          {signup && (
+            <label className="field">
+              <span>Full name</span>
+              <input
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Chidera Okonkwo"
+              />
+            </label>
+          )}
+          {signup && (
+            <label className="field">
+              <span>Email</span>
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </label>
+          )}
           <label className="field">
             <span>Phone number</span>
             <div className="phone-field">
@@ -1095,10 +1458,7 @@ function AuthFlow({
           </label>
           {error && <p className="form-error">{error}</p>}
           <button className="btn btn-primary btn-block" type="submit">
-            Send code <ArrowRight size={17} />
-          </button>
-          <button className="demo-link" type="button" onClick={onDone}>
-            Skip and open the demo account
+            {signup ? 'Send code' : 'Continue'} <ArrowRight size={17} />
           </button>
         </form>
         <p className="legal">
@@ -1112,7 +1472,7 @@ function AuthFlow({
   if (stage === 'otp') {
     return (
       <div className="auth">
-        <button className="back" aria-label="Back" onClick={() => setStage('auth')}>
+        <button className="back" aria-label="Back" onClick={() => go('auth')}>
           <ArrowLeft size={20} />
         </button>
         <div className="auth-mark soft">
@@ -1130,8 +1490,7 @@ function AuthFlow({
               setError('Enter all six digits.');
               return;
             }
-            setError('');
-            setStage('pin');
+            go('pin');
           }}
         >
           <label className="field">
@@ -1160,15 +1519,19 @@ function AuthFlow({
 
   return (
     <div className="auth pin">
-      <button className="back" aria-label="Back" onClick={() => setStage('otp')}>
+      <button className="back" aria-label="Back" onClick={() => go('otp')}>
         <ArrowLeft size={20} />
       </button>
       <div className="auth-mark soft">
         <Lock size={24} />
       </div>
-      <h1>Set a 4-digit PIN</h1>
-      <p className="auth-sub">This PIN unlocks the app on this device. It is stored only as a demo preference.</p>
-      <div className="pin-dots" aria-label={`${pin.length} of 4 digits entered`}>
+      <h1>{mode === 'signup' ? 'Set a 4-digit PIN' : 'Enter your PIN'}</h1>
+      <p className="auth-sub">
+        {mode === 'signup'
+          ? 'This PIN unlocks the app on this device. It is stored only as a demo preference.'
+          : 'Enter the PIN you set on this device to open your account.'}
+      </p>
+      <div className="pin-dots" role="status" aria-label={`${pin.length} of 4 digits entered`}>
         {[0, 1, 2, 3].map((i) => (
           <span key={i} className={pin.length > i ? 'filled' : ''} />
         ))}
@@ -1187,7 +1550,13 @@ function AuthFlow({
           <Minus size={20} />
         </button>
       </div>
-      <p className="pin-hint">{pin.length === 4 ? 'Opening your workspace…' : 'Demo: choose any four digits'}</p>
+      <p className="pin-hint">
+        {pin.length === 4
+          ? mode === 'signup'
+            ? 'Creating your account…'
+            : 'Opening your workspace…'
+          : 'Demo: choose any four digits'}
+      </p>
     </div>
   );
 }
@@ -1201,11 +1570,13 @@ function OverlayView({
   open,
   close,
   install,
+  onSignOut,
 }: {
   overlay: Overlay;
   open: (o: Overlay) => void;
   close: () => void;
   install: InstallCtx;
+  onSignOut: () => void;
 }) {
   switch (overlay.type) {
     case 'notifications':
@@ -1230,6 +1601,10 @@ function OverlayView({
       return <BanksSheet close={close} />;
     case 'install':
       return <InstallSheet close={close} install={install} />;
+    case 'account':
+      return <AccountDetailsSheet close={close} open={open} onSignOut={onSignOut} />;
+    case 'info':
+      return <InfoSheet title={overlay.title} body={overlay.body} close={close} />;
     default:
       return null;
   }
@@ -1249,11 +1624,36 @@ function Sheet({
   tall?: boolean;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(close);
+  closeRef.current = close;
 
   useEffect(() => {
+    const focusables = () =>
+      Array.from(
+        sheetRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => el.offsetParent !== null);
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+      if (e.key === 'Escape') {
+        closeRef.current();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const items = focusables();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
+
     const prev = document.activeElement as HTMLElement | null;
     document.addEventListener('keydown', onKey);
     document.body.classList.add('sheet-open');
@@ -1261,9 +1661,9 @@ function Sheet({
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.classList.remove('sheet-open');
-      prev?.focus?.();
+      if (prev?.isConnected) prev.focus?.();
     };
-  }, [close]);
+  }, []);
 
   return (
     <div className="sheet-wrap">
@@ -1285,12 +1685,148 @@ function Sheet({
   );
 }
 
+function AccountDetailsSheet({
+  close,
+  open,
+  onSignOut,
+}: {
+  close: () => void;
+  open: (o: Overlay) => void;
+  onSignOut: () => void;
+}) {
+  const s = useStore();
+  const p = s.user;
+  const note = (title: string, body: string) => open({ type: 'info', title, body });
+
+  return (
+    <Sheet title="Account Details" close={close} tall>
+      <div className="account-top">
+        <Avatar initials={p.initials} tint={p.avatarTint} size={82} ring />
+        <button
+          className="account-edit"
+          onClick={() =>
+            note(
+              'Edit profile',
+              'Name, email and address changes go through identity checks in the live product. This demo keeps the sample identity fixed.',
+            )
+          }
+        >
+          Edit
+        </button>
+      </div>
+
+      <div className="account-group">
+        <h3>Profile</h3>
+        <div className="account-card">
+          <div className="account-row">
+            <span>Name</span>
+            <b>{p.name}</b>
+          </div>
+          <button
+            className="account-row"
+            onClick={() =>
+              note('Email', `${p.email} is the address on this demo account. Changing it needs re-verification in the live product.`)
+            }
+          >
+            <span>Email</span>
+            <b>{p.email}</b>
+            <ChevronRight size={15} />
+          </button>
+          <div className="account-row">
+            <span>Phone Number</span>
+            <b>{p.phone}</b>
+          </div>
+        </div>
+      </div>
+
+      <div className="account-group">
+        <h3>Account IDs</h3>
+        <div className="account-card">
+          <div className="account-row">
+            <span>NIN</span>
+            <b>{p.nin}</b>
+          </div>
+          <div className="account-row">
+            <span>US Stocks Acct Num.</span>
+            <b>{p.usStocksAccount}</b>
+          </div>
+          <button
+            className="account-row"
+            onClick={() =>
+              note(
+                'Updated Password',
+                'Password changes send a one-time code to your registered email in the live product. This demo signs in with a PIN on this device.',
+              )
+            }
+          >
+            <span>Updated Password</span>
+            <b>Last changed 2 months ago</b>
+            <ChevronRight size={15} />
+          </button>
+        </div>
+      </div>
+
+      <div className="account-group">
+        <h3>Address</h3>
+        <div className="account-card">
+          <div className="account-row block">
+            <span>Residential Address</span>
+            <b>{p.address}</b>
+          </div>
+        </div>
+      </div>
+
+      <div className="account-group">
+        <h3>Next of Kin</h3>
+        <div className="account-card">
+          <button
+            className="account-row"
+            onClick={() =>
+              note(
+                'Beneficiary Details',
+                'Next of kin details are collected during full verification. This demo does not store beneficiary records.',
+              )
+            }
+          >
+            <span>Beneficiary Details</span>
+            <b>Not added</b>
+            <ChevronRight size={15} />
+          </button>
+        </div>
+      </div>
+
+      <button
+        className="account-logout"
+        onClick={() => {
+          close();
+          onSignOut();
+        }}
+      >
+        Log Out
+      </button>
+    </Sheet>
+  );
+}
+
+function InfoSheet({ title, body, close }: { title: string; body: string; close: () => void }) {
+  return (
+    <Sheet title={title} close={close}>
+      <p className="sheet-note">{body}</p>
+      <button className="btn btn-primary btn-block" onClick={close}>
+        Got it
+      </button>
+    </Sheet>
+  );
+}
+
 function PlanSheet({ id, close, open }: { id: string; close: () => void; open: (o: Overlay) => void }) {
   const s = useStore();
+  const hide = s.prefs.hideBalance;
   const [note, setNote] = useState('');
   const plan = s.plans.find((p) => p.id === id);
   if (!plan) return null;
   const progress = plan.target ? progressPct(plan.balance, plan.target) : 100;
+  const remaining = plan.target ? plan.target - plan.balance : 0;
   const locked = plan.kind === 'fixed';
 
   return (
@@ -1300,14 +1836,15 @@ function PlanSheet({ id, close, open }: { id: string; close: () => void; open: (
           {planIcon(plan.icon, 22)}
         </span>
         <span>Plan balance</span>
-        <b>{ngn(plan.balance, 2)}</b>
+        <b>{maskAmount(hide, ngn(plan.balance, 2))}</b>
         {plan.target ? (
           <>
             <div className="bar big">
               <span style={{ width: `${progress}%`, background: plan.color }} />
             </div>
             <p className="plan-hero-meta">
-              {progress}% of {ngn(plan.target)} · {ngn(plan.target - plan.balance)} to go
+              {progress}% of {maskAmount(hide, ngn(plan.target))}
+              {remaining > 0 ? ` · ${maskAmount(hide, ngn(remaining))} to go` : ' · target reached'}
             </p>
           </>
         ) : (
@@ -1333,7 +1870,7 @@ function PlanSheet({ id, close, open }: { id: string; close: () => void; open: (
         {plan.monthly && (
           <div>
             <span>Auto-save</span>
-            <b>{ngn(plan.monthly)} monthly</b>
+            <b>{maskAmount(hide, ngn(plan.monthly))} monthly</b>
           </div>
         )}
         <div>
@@ -1429,7 +1966,7 @@ function StockSheet({ symbol, close, open }: { symbol: string; close: () => void
       {holding && (
         <div className="holding-note">
           <span>You hold {holding.units} units</span>
-          <b>{c(holding.units * stock.price)}</b>
+          <b>{maskAmount(s.prefs.hideBalance, c(holding.units * stock.price))}</b>
         </div>
       )}
 
@@ -1514,7 +2051,7 @@ function OrderSheet({
         {side === 'sell' && <p className="help">You hold {maxUnits} units. Selling all closes the position.</p>}
         {side === 'buy' && (
           <p className="help">
-            Available: {stock.currency === 'USD' ? usd(available) : ngn(available)}
+            Available: {maskAmount(s.prefs.hideBalance, stock.currency === 'USD' ? usd(available) : ngn(available))}
             {stock.currency === 'USD' ? ' · FX quoted at ₦1,600 / $1' : ''}
           </p>
         )}
@@ -1627,7 +2164,9 @@ function MoneySheet({
             Max
           </button>
         </div>
-        <p className="help">Available {mode === 'add' ? 'limit' : 'balance'}: {ngn(cfg.available)}</p>
+        <p className="help">
+          Available {mode === 'add' ? 'limit' : 'balance'}: {maskAmount(s.prefs.hideBalance, ngn(cfg.available))}
+        </p>
 
         {mode === 'transfer' ? (
           <label className="field">
@@ -1772,7 +2311,10 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
             </label>
           </div>
         )}
-        <p className="help">Wallet balance: {ngn(s.walletNgn)}. The starting amount moves from your wallet.</p>
+        <p className="help">
+          Wallet balance: {maskAmount(s.prefs.hideBalance, ngn(s.walletNgn))}. The starting amount moves from your
+          wallet.
+        </p>
         {error && <p className="form-error">{error}</p>}
         <button className="btn btn-primary btn-block" type="submit">
           Create plan
@@ -1783,17 +2325,19 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
 }
 
 function ReceiptSheet({ txn, close }: { txn: Txn; close: () => void }) {
-  const positive = txn.amount > 0;
+  const s = useStore();
+  const hide = s.prefs.hideBalance;
+  const failed = txn.status === 'Failed';
+  const positive = txn.amount > 0 && !failed;
   return (
     <Sheet title="Receipt" subtitle="Saved to your demo activity" close={close}>
       <div className="receipt">
-        <span className={`receipt-check ${txn.status === 'Failed' ? 'failed' : ''}`}>
-          {txn.status === 'Failed' ? <X size={26} /> : <Check size={28} />}
+        <span className={`receipt-check ${failed ? 'failed' : ''}`}>
+          {failed ? <X size={26} /> : <Check size={28} />}
         </span>
-        <h3>{txn.status === 'Failed' ? 'Payment failed' : positive ? 'Money received' : 'Payment sent'}</h3>
-        <b className={positive ? 'receipt-amount up' : 'receipt-amount'}>
-          {positive ? '+' : '−'}
-          {ngn(Math.abs(txn.amount), 2)}
+        <h3>{failed ? 'Payment failed' : positive ? 'Money received' : 'Payment sent'}</h3>
+        <b className={positive ? 'receipt-amount up' : `receipt-amount${failed ? ' void' : ''}`}>
+          {maskAmount(hide, `${failed ? '' : positive ? '+' : '−'}${ngn(Math.abs(txn.amount), 2)}`)}
         </b>
         <p className="receipt-meta">{txn.title}</p>
         <div className="receipt-lines">
@@ -1857,11 +2401,13 @@ function NotificationsSheet({ close }: { close: () => void }) {
 
 function ActivitySheet({ close, open }: { close: () => void; open: (o: Overlay) => void }) {
   const s = useStore();
+  const hide = s.prefs.hideBalance;
   const [filter, setFilter] = useState<'all' | 'in' | 'out' | 'savings' | 'invest'>('all');
   const list = s.txns.filter((t) => {
     if (filter === 'all') return true;
-    if (filter === 'in') return t.amount > 0 && t.type !== 'savings' && t.type !== 'invest';
-    if (filter === 'out') return t.amount < 0 && t.type !== 'savings' && t.type !== 'invest';
+    const settled = t.status !== 'Failed';
+    if (filter === 'in') return settled && t.amount > 0 && t.type !== 'savings' && t.type !== 'invest';
+    if (filter === 'out') return settled && t.amount < 0 && t.type !== 'savings' && t.type !== 'invest';
     return t.type === filter;
   });
 
@@ -1884,11 +2430,11 @@ function ActivitySheet({ close, open }: { close: () => void; open: (o: Overlay) 
       </div>
       <div className="rows card">
         {list.map((t) => {
-          const positive = t.amount > 0;
+          const credited = t.amount > 0 && t.status !== 'Failed';
           return (
             <button key={t.id} className="row txn-row" onClick={() => open({ type: 'receipt', txn: t })}>
-              <span className={`row-icon ${positive ? 'in' : 'out'} ${t.status === 'Failed' ? 'failed' : ''}`}>
-                {positive ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
+              <span className={`row-icon ${credited ? 'in' : 'out'} ${t.status === 'Failed' ? 'failed' : ''}`}>
+                {credited ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
               </span>
               <span className="row-main">
                 <span className="row-title">{t.title}</span>
@@ -1897,7 +2443,9 @@ function ActivitySheet({ close, open }: { close: () => void; open: (o: Overlay) 
                 </span>
               </span>
               <span className="row-end">
-                <b className={positive ? 'green' : ''}>{positive ? '+' : '−'}{ngn(Math.abs(t.amount))}</b>
+                <b className={credited ? 'green' : t.status === 'Failed' ? 'void' : ''}>
+                  {maskAmount(hide, t.status === 'Failed' ? ngn(Math.abs(t.amount)) : `${credited ? '+' : '−'}${ngn(Math.abs(t.amount))}`)}
+                </b>
                 <span className={t.status === 'Failed' ? 'delta down' : 'delta muted'}>{t.status}</span>
               </span>
             </button>
@@ -1913,26 +2461,29 @@ function KycSheet({ close }: { close: () => void }) {
   const s = useStore();
   const levels = [
     {
+      level: 0,
       title: 'Level 0 · Phone only',
       body: 'Browse products, no money movement.',
-      state: 'Complete',
     },
     {
+      level: 1,
       title: 'Level 1 · Phone + email',
       body: 'Small wallet limits and savings top-ups.',
-      state: 'Complete',
     },
     {
+      level: 2,
       title: 'Level 2 · BVN + NIN',
       body: 'Full wallet, savings and investing. Daily limits raised.',
-      state: 'Current',
     },
     {
+      level: 3,
       title: 'Level 3 · Address + income',
       body: 'Higher limits after a short manual review.',
-      state: 'Optional',
     },
-  ];
+  ].map((l) => ({
+    ...l,
+    state: l.level < s.user.kycLevel ? 'Complete' : l.level === s.user.kycLevel ? 'Current' : 'Optional',
+  }));
   return (
     <Sheet title="Verification" subtitle={s.user.kycLabel} close={close} tall>
       <div className="kyc-user">
@@ -1965,6 +2516,7 @@ function KycSheet({ close }: { close: () => void }) {
 
 function BanksSheet({ close }: { close: () => void }) {
   const s = useStore();
+  const [note, setNote] = useState('');
   return (
     <Sheet title="Linked banks" subtitle="Accounts used for funding and withdrawals" close={close}>
       <div className="bank-list">
@@ -1981,9 +2533,13 @@ function BanksSheet({ close }: { close: () => void }) {
           </div>
         ))}
       </div>
-      <button className="btn btn-ghost btn-block" onClick={close}>
+      <button
+        className="btn btn-ghost btn-block"
+        onClick={() => setNote('Adding a bank needs a partner verification step, which this demo does not include.')}
+      >
         Add another bank
       </button>
+      {note && <p className="help">{note}</p>}
       <p className="foot-note">Demo accounts only. Real funding uses a partner bank or payment processor.</p>
     </Sheet>
   );
