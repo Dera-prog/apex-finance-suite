@@ -372,8 +372,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         holdings: nextHoldings,
         walletNgn: stock.currency === 'NGN' ? s.walletNgn + proceeds : s.walletNgn,
         walletUsd: stock.currency === 'USD' ? s.walletUsd + proceeds : s.walletUsd,
-        investmentsNgn: stock.currency === 'NGN' ? Math.max(0, s.investmentsNgn - existing.avgCost * units) : s.investmentsNgn,
-        investmentsUsd: stock.currency === 'USD' ? Math.max(0, s.investmentsUsd - existing.avgCost * units) : s.investmentsUsd,
+        investmentsNgn: stock.currency === 'NGN' ? Math.max(0, s.investmentsNgn - gross) : s.investmentsNgn,
+        investmentsUsd: stock.currency === 'USD' ? Math.max(0, s.investmentsUsd - gross) : s.investmentsUsd,
         txns: [
           {
             id: `tx-${Date.now()}`,

@@ -4,6 +4,7 @@ import {
   Bell,
   Bookmark,
   ChevronRight,
+  DollarSign,
   Eye,
   Fingerprint,
   Home,
@@ -21,9 +22,28 @@ import {
   Zap,
 } from 'lucide-react';
 import { ApexMark, Sparkline } from '@shared/ui';
-import { ngn, stocks, user } from '@shared/data';
+import { holdings, ngn, stocks, user } from '@shared/data';
 
 type Variant = 'home' | 'save' | 'invest' | 'order' | 'profile' | 'onboarding';
+
+const ngxStocks = stocks.filter((s) => s.currency === 'NGN');
+
+const capInBillions = (cap: string) => {
+  const value = parseFloat(cap.replace(/[^\d.]/g, ''));
+  return cap.endsWith('t') ? value * 1000 : value;
+};
+
+const topMovers = [...ngxStocks]
+  .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+  .slice(0, 3);
+
+const topByMarketCap = [...ngxStocks]
+  .sort((a, b) => capInBillions(b.marketCap) - capInBillions(a.marketCap))
+  .slice(0, 10);
+
+const ngxHoldings = holdings
+  .map((h) => ({ ...h, stock: stocks.find((s) => s.symbol === h.symbol) }))
+  .filter((h) => h.stock?.currency === 'NGN');
 
 const navItems = [
   { key: 'home', label: 'Home', Icon: Home },
@@ -85,6 +105,10 @@ function HomeScreen() {
         <div className="amount">₦1,240,400.00</div>
         <div className="cols">
           <div>
+            <small>Wallet</small>
+            <b>₦268,400.00</b>
+          </div>
+          <div>
             <small>Savings</small>
             <b>₦807,500.00</b>
           </div>
@@ -109,7 +133,7 @@ function HomeScreen() {
           <Landmark size={12} /> NGN
         </div>
         <div style={{ background: '#FFF0C2' }}>
-          <Bell size={12} /> USD
+          <DollarSign size={12} /> USD
         </div>
         <div style={{ background: '#CCF4F9' }}>
           <TrendingUp size={12} /> Stocks
@@ -121,11 +145,11 @@ function HomeScreen() {
 
       <div className="mp-card">
         <div className="mp-section-title">
-          Today’s performance <span>+4.8%</span>
+          Portfolio return <span>All time +4.8%</span>
         </div>
         <div className="mp-perf">
           <div>
-            <div className="k">Total return</div>
+            <div className="k">All-time return</div>
             <div className="v">+₦73,000</div>
           </div>
           <div>
@@ -139,7 +163,7 @@ function HomeScreen() {
         <div className="mp-section-title">
           Top movers <span>See all</span>
         </div>
-        {stocks.slice(0, 3).map((s) => (
+        {topMovers.map((s) => (
           <div className="mp-stock-row" key={s.symbol}>
             <div className="tick" style={{ background: s.tint }}>
               {s.symbol.slice(0, 2)}
@@ -196,7 +220,7 @@ function InvestScreen() {
         <div className="mp-section-title">
           Top 10 by market cap <span>See all</span>
         </div>
-        {stocks.slice(0, 7).map((s) => (
+        {topByMarketCap.map((s) => (
           <div className="mp-stock-row" key={s.symbol}>
             <div className="tick" style={{ background: s.tint }}>
               {s.symbol.slice(0, 2)}
@@ -226,16 +250,20 @@ function InvestNav() {
 }
 
 function OrderScreen() {
+  const stock = stocks.find((s) => s.symbol === 'DANGCEM')!;
+  const units = 20;
+  const subtotal = stock.price * units;
+  const fee = 23.75;
   return (
     <div className="mp-scroll">
       <div className="mp-order-head">
         <ArrowLeft size={9} />
-        <b>Dangote Cement</b>
+        <b>{stock.name}</b>
         <span style={{ marginLeft: 'auto', fontSize: 6, color: '#5F6A7E', fontWeight: 700 }}>DANGCEM</span>
       </div>
       <div className="mp-order-price">
-        <b>₦635.00</b>
-        <span>↗ 1.24%</span>
+        <b>{ngn(stock.price, 2)}</b>
+        <span>↗ {stock.change.toFixed(2)}%</span>
       </div>
       <div style={{ fontSize: 6, color: '#5F6A7E', fontWeight: 600 }}>
         NGX · Prices delayed at least 15 min
@@ -250,7 +278,7 @@ function OrderScreen() {
       <div className="mp-order-field">
         <small>UNITS</small>
         <div className="inp">
-          20 <span>≈ ₦12,700.00</span>
+          {units} <span>≈ {ngn(subtotal, 2)}</span>
         </div>
       </div>
       <div className="mp-order-field">
@@ -261,7 +289,7 @@ function OrderScreen() {
       </div>
       <div className="mp-order-total">
         <span>Estimated total</span>
-        <span>₦12,723.75</span>
+        <span>{ngn(subtotal + fee, 2)}</span>
       </div>
       <div className="mp-cta">Review order</div>
       <p className="mp-fine">
@@ -382,7 +410,7 @@ function OnboardingScreen() {
           <br />
           moving forward.
         </h3>
-        <p>Save steadily, access funds and own a piece of great companies — from one simple app.</p>
+        <p>Save steadily, access funds and own pieces of great companies — from one simple app.</p>
         <div className="trust">
           <div>
             <ShieldCheck size={7} /> Identity-protected accounts
@@ -566,14 +594,14 @@ export function MiniDesktop() {
               <div className="t">
                 Holdings <span style={{ color: '#5F6A7E', fontWeight: 600 }}>₦164,500</span>
               </div>
-              {stocks.slice(0, 4).map((s) => (
-                <div className="md-tr" key={s.symbol}>
-                  <div className="sq" style={{ background: s.tint }}>
-                    {s.symbol.slice(0, 2)}
+              {ngxHoldings.map((h) => (
+                <div className="md-tr" key={h.symbol}>
+                  <div className="sq" style={{ background: h.stock!.tint }}>
+                    {h.symbol.slice(0, 2)}
                   </div>
-                  <b>{s.name}</b>
-                  <span>{ngn(s.price, 0)}</span>
-                  <em>{s.change > 0 ? '+' : ''}{s.change.toFixed(2)}%</em>
+                  <b>{h.stock!.name}</b>
+                  <span>{ngn(h.price, 2)}</span>
+                  <em>{h.change > 0 ? '+' : ''}{h.change.toFixed(2)}%</em>
                 </div>
               ))}
             </div>

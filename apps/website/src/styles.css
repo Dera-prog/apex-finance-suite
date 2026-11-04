@@ -15,6 +15,13 @@
   margin: 0 auto;
 }
 
+.nav :focus-visible,
+.hero :focus-visible,
+.band-dark :focus-visible,
+.install :focus-visible {
+  outline-color: #9cc0ff;
+}
+
 /* ---------------- nav ---------------- */
 
 .nav {
@@ -173,7 +180,7 @@
 
 .mobile-menu {
   position: fixed;
-  inset: 74px 16px auto;
+  inset: 104px 16px auto;
   z-index: 89;
   background: #fff;
   border: 1px solid var(--site-line);
@@ -339,7 +346,7 @@
 
 .hero-proof span {
   font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.72);
   font-weight: 600;
 }
 
@@ -349,7 +356,7 @@
   gap: 6px;
   margin-top: 18px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.48);
+  color: rgba(255, 255, 255, 0.68);
 }
 
 .hero-visual {
@@ -506,22 +513,24 @@
 
 .ps-split {
   display: flex;
-  gap: 18px;
+  justify-content: space-between;
+  gap: 10px;
   margin-top: 12px;
 }
 
 .ps-split span {
   display: block;
   font-size: 8.5px;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.85);
   text-transform: none;
   letter-spacing: 0;
   font-weight: 600;
 }
 
 .ps-split b {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .ps-actions {
@@ -603,7 +612,7 @@
   font-size: 9px;
 }
 
-.ps-row:first-of-type {
+.ps-card-head + .ps-row {
   border-top: 0;
 }
 
@@ -1212,7 +1221,7 @@
 }
 
 .band-dark .eyebrow {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .band-dark h2 {
@@ -1268,7 +1277,7 @@
   display: block;
   margin-top: 4px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.72);
   line-height: 1.5;
 }
 
@@ -1302,7 +1311,7 @@
   margin-left: auto;
   font-size: 9px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .band-app {
@@ -1337,7 +1346,7 @@
   border-radius: 10px;
   font-size: 10.5px;
   font-weight: 650;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .band-side span.on {
@@ -1364,7 +1373,7 @@
 
 .band-main-head small {
   font-size: 9.5px;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.66);
 }
 
 .band-kpis {
@@ -1384,7 +1393,7 @@
 .band-kpi span {
   font-size: 8.5px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.66);
 }
 
 .band-kpi b {
@@ -1408,7 +1417,7 @@
   justify-content: space-between;
   align-items: center;
   font-size: 9px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.66);
 }
 
 .band-chart-head b {
@@ -1885,7 +1894,7 @@
   color: var(--site-muted);
 }
 
-.footer-col h4 {
+.footer-col h3 {
   font-family: var(--font-ui);
   font-size: 10px;
   font-weight: 800;

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import {
   ArrowDownLeft,
   ArrowLeftRight,
@@ -106,6 +106,20 @@ function StatusPill({ status }: { status: Txn['status'] }) {
   );
 }
 
+const amountTone = (t: Txn) => (t.status === 'Failed' ? 'amount-void' : t.amount >= 0 ? 'amount-in' : 'amount-out');
+
+const rowProps = (onClick: () => void) => ({
+  className: 'clickable',
+  tabIndex: 0,
+  onClick,
+  onKeyDown: (e: ReactKeyboardEvent<HTMLTableRowElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  },
+});
+
 function ModalShell({
   title,
   sub,
@@ -119,21 +133,47 @@ function ModalShell({
   children: ReactNode;
   wide?: boolean;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    const node = ref.current;
+    node?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        closeRef.current();
+        return;
+      }
+      if (e.key !== 'Tab' || !node) return;
+      const focusables = node.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
+      prev?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="overlay" onMouseDown={onClose} role="presentation">
       <div
+        ref={ref}
+        tabIndex={-1}
         className={`modal${wide ? ' wide' : ''}`}
         role="dialog"
         aria-modal="true"
@@ -170,7 +210,11 @@ function AmountField({
       <input
         inputMode="decimal"
         value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[^\d.]/g, ''))}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/[^\d.]/g, '');
+          const [head, ...rest] = digits.split('.');
+          onChange(rest.length ? `${head}.${rest.join('')}` : head);
+        }}
         placeholder="0"
         aria-label="Amount"
       />
@@ -280,7 +324,7 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
             <b>₦0.00</b>
           </div>
           <div className="preview-row">
-            <span>{mode === 'add' ? 'Wallet balance after' : 'Wallet balance after'}</span>
+            <span>Wallet balance after</span>
             <b>{ngn(mode === 'add' ? store.walletNgn + value : store.walletNgn - value)}</b>
           </div>
           <div className="preview-row total">
@@ -318,7 +362,7 @@ function NewPlanModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     setError(null);
     const result = store.createPlan({
-      name: name || (kind === 'fixed' ? 'Fixed deposit' : kind === 'target' ? 'New target' : 'Everyday fund'),
+      name: name.trim(),
       kind,
       initial: Number(initial || 0),
       target: kind === 'target' ? Number(target || 0) : undefined,
@@ -548,11 +592,11 @@ function TradeModal({
       onClose={onClose}
       wide
     >
-      <div className="seg-wide" role="tablist" aria-label="Order side">
-        <button type="button" className={side === 'buy' ? 'on' : ''} onClick={() => setSide('buy')}>
+      <div className="seg-wide" role="group" aria-label="Order side">
+        <button type="button" aria-pressed={side === 'buy'} className={side === 'buy' ? 'on' : ''} onClick={() => setSide('buy')}>
           Buy
         </button>
-        <button type="button" className={side === 'sell' ? 'on' : ''} onClick={() => setSide('sell')}>
+        <button type="button" aria-pressed={side === 'sell'} className={side === 'sell' ? 'on' : ''} onClick={() => setSide('sell')}>
           Sell
         </button>
       </div>
@@ -616,14 +660,14 @@ function TradeModal({
 
 function ReceiptModal({ txn, onClose }: { txn: Txn; onClose: () => void }) {
   const store = useStore();
-  const positive = txn.amount >= 0;
+  const positive = txn.amount >= 0 && txn.status !== 'Failed';
   return (
     <ModalShell title="Transaction receipt" sub="Keep this reference for support." onClose={onClose}>
       <div className="receipt">
         <div className="receipt-head">
           <Avatar initials="AO" size={40} ring tint="#FFDCCE" />
-          <b style={{ color: positive ? 'var(--green-700)' : 'var(--ink-900)' }}>
-            {positive ? '+' : '−'}
+          <b style={{ color: positive ? 'var(--green-700)' : txn.status === 'Failed' ? 'var(--ink-500)' : 'var(--ink-900)' }}>
+            {txn.status === 'Failed' ? '' : positive ? '+' : '−'}
             {ngn(Math.abs(txn.amount))}
           </b>
           <span>{txn.title}</span>
@@ -684,6 +728,11 @@ function Overview({
   go: (p: Page) => void;
 }) {
   const s = useStore();
+  const ngxGain = s.holdings.reduce((sum, h) => {
+    const stock = stocks.find((x) => x.symbol === h.symbol);
+    if (!stock || stock.currency !== 'NGN') return sum;
+    return sum + (stock.price - h.avgCost) * h.units;
+  }, 0);
   const chart = [22, 26, 24, 30, 28, 34, 33, 39, 36, 44, 42, 48, 50, 56, 54, 61, 60, 68];
   const line = chart
     .map((v, i) => `${i === 0 ? 'M' : 'L'}${(i / (chart.length - 1)) * 340} ${104 - (v / 72) * 96}`)
@@ -711,7 +760,7 @@ function Overview({
               <b>{ngn(s.investmentsNgn)}</b>
             </div>
             <div>
-              <span>US portfolio</span>
+              <span>US portfolio · USD</span>
               <b>{usd(s.investmentsUsd)}</b>
             </div>
           </div>
@@ -724,7 +773,7 @@ function Overview({
               className="btn btn-ghost btn-sm"
               onClick={() => open({ type: 'money', mode: 'transfer' })}
             >
-              <Send size={14} /> Move money
+              <Send size={14} /> Send money
             </button>
           </div>
         </div>
@@ -778,7 +827,7 @@ function Overview({
           </div>
           <b>{ngn(s.investmentsNgn)}</b>
           <small>
-            Total return <em>+₦73,000</em>
+            Total return <em>{ngxGain >= 0 ? '+' : '−'}{ngn(Math.abs(ngxGain))}</em>
           </small>
         </div>
         <div className="kpi">
@@ -818,11 +867,7 @@ function Overview({
               {s.holdings.slice(0, 5).map((h) => {
                 const stock = stocks.find((x) => x.symbol === h.symbol)!;
                 return (
-                  <tr
-                    key={h.symbol}
-                    className="clickable"
-                    onClick={() => open({ type: 'trade', symbol: h.symbol, side: 'buy' })}
-                  >
+                <tr key={h.symbol} {...rowProps(() => open({ type: 'trade', symbol: h.symbol, side: 'buy' }))}>
                     <td>
                       <div className="cell-main">
                         <span className="asset-mark" style={{ background: stock.tint }}>
@@ -906,7 +951,7 @@ function Overview({
           <table className="table">
             <tbody>
               {s.txns.slice(0, 5).map((t) => (
-                <tr key={t.id} className="clickable" onClick={() => open({ type: 'receipt', txn: t })}>
+                <tr key={t.id} {...rowProps(() => open({ type: 'receipt', txn: t }))}>
                   <td>
                     <div className="cell-main">
                       <span className="asset-mark" style={{ background: txnTint(t.type), color: '#21304f' }}>
@@ -921,7 +966,7 @@ function Overview({
                   <td style={{ width: 110 }}>
                     <StatusPill status={t.status} />
                   </td>
-                  <td className={`num ${t.amount >= 0 ? 'amount-in' : 'amount-out'}`}>
+                  <td className={`num ${amountTone(t)}`}>
                     {t.amount >= 0 ? '+' : '−'}
                     {ngn(Math.abs(t.amount))}
                   </td>
@@ -998,7 +1043,7 @@ function WalletPage({ open }: { open: (m: ModalState) => void }) {
             </span>
             <h2 style={{ marginTop: 8, fontSize: 38, letterSpacing: '-0.05em' }}>{ngn(s.walletNgn)}</h2>
             <p style={{ marginTop: 4, fontSize: 11, color: 'rgba(255,255,255,.55)' }}>
-              Available now · {ngn(12500)} pending from a bank transfer
+              Available now · demo balance, no real funds
             </p>
             <div style={{ display: 'flex', gap: 8, marginTop: 20, flexWrap: 'wrap' }}>
               <button type="button" className="btn btn-white btn-sm" onClick={() => open({ type: 'money', mode: 'add' })}>
@@ -1109,7 +1154,7 @@ function WalletPage({ open }: { open: (m: ModalState) => void }) {
           </thead>
           <tbody>
             {walletTxns.slice(0, 8).map((t) => (
-              <tr key={t.id} className="clickable" onClick={() => open({ type: 'receipt', txn: t })}>
+              <tr key={t.id} {...rowProps(() => open({ type: 'receipt', txn: t }))}>
                 <td>
                   <div className="cell-main">
                     <span className="asset-mark" style={{ background: txnTint(t.type) }}>
@@ -1188,13 +1233,12 @@ function SavingsPage({ open }: { open: (m: ModalState) => void }) {
             <p>Three behaviours: flexible access, fixed rate, or a visible target</p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div className="seg" role="tablist" aria-label="Filter plans">
+            <div className="seg" role="group" aria-label="Filter plans">
               {(['all', 'flexible', 'fixed', 'target'] as const).map((t) => (
                 <button
                   type="button"
                   key={t}
-                  role="tab"
-                  aria-selected={tab === t}
+                  aria-pressed={tab === t}
                   className={tab === t ? 'on' : ''}
                   onClick={() => setTab(t)}
                 >
@@ -1287,6 +1331,11 @@ function InvestPage({ open }: { open: (m: ModalState) => void }) {
     value: h.units * stock.price,
     color: stock.tint === '#E9EDF2' ? '#A9CBFF' : stock.tint,
   }));
+  const ngxCost = s.holdings.reduce((sum, h) => {
+    const stock = stocks.find((x) => x.symbol === h.symbol);
+    return stock && stock.currency === 'NGN' ? sum + stock.avgCost * h.units : sum;
+  }, 0);
+  const gainPct = ngxCost ? ((s.investmentsNgn - ngxCost) / ngxCost) * 100 : 0;
 
   return (
     <div className="page page-enter">
@@ -1300,7 +1349,7 @@ function InvestPage({ open }: { open: (m: ModalState) => void }) {
           </div>
           <b>{ngn(s.investmentsNgn)}</b>
           <small>
-            <em>+4.8%</em> total return (demo)
+            <em>{gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%</em> total return (demo)
           </small>
         </div>
         <div className="kpi">
@@ -1368,7 +1417,7 @@ function InvestPage({ open }: { open: (m: ModalState) => void }) {
             </thead>
             <tbody>
               {list.map((stock) => (
-                <tr key={stock.symbol} className="clickable" onClick={() => open({ type: 'trade', symbol: stock.symbol, side: 'buy' })}>
+                <tr key={stock.symbol} {...rowProps(() => open({ type: 'trade', symbol: stock.symbol, side: 'buy' }))}>
                   <td>
                     <div className="cell-main">
                       <span className="asset-mark" style={{ background: stock.tint }}>
@@ -1467,7 +1516,7 @@ function InvestPage({ open }: { open: (m: ModalState) => void }) {
                   <div className="alloc">
                     <i
                       style={{
-                        width: `${Math.min(100, (value / Math.max(1, s.investmentsNgn)) * 100)}%`,
+                        width: `${Math.min(100, (value / Math.max(1, stock.currency === 'USD' ? s.investmentsUsd : s.investmentsNgn)) * 100)}%`,
                         background: stock.change >= 0 ? 'var(--green-500)' : 'var(--red-600)',
                       }}
                     />
@@ -1497,16 +1546,25 @@ function InvestPage({ open }: { open: (m: ModalState) => void }) {
 const FILTERS = ['All', 'Money in', 'Money out', 'Savings', 'Invest'] as const;
 type Filter = (typeof FILTERS)[number];
 
-function ActivityPage({ open, initialQuery }: { open: (m: ModalState) => void; initialQuery: string }) {
+function ActivityPage({
+  open,
+  initialQuery,
+  searchNonce,
+}: {
+  open: (m: ModalState) => void;
+  initialQuery: string;
+  searchNonce: number;
+}) {
   const s = useStore();
   const [filter, setFilter] = useState<Filter>('All');
   const [query, setQuery] = useState(initialQuery);
 
   useEffect(() => {
-    if (initialQuery) setQuery(initialQuery);
-  }, [initialQuery]);
+    setQuery(initialQuery);
+  }, [initialQuery, searchNonce]);
 
   const rows = s.txns.filter((t) => {
+    if (t.status === 'Failed' && (filter === 'Money in' || filter === 'Money out')) return false;
     if (filter === 'Money in' && t.amount < 0) return false;
     if (filter === 'Money out' && t.amount >= 0) return false;
     if (filter === 'Savings' && t.type !== 'savings' && t.type !== 'interest') return false;
@@ -1564,7 +1622,7 @@ function ActivityPage({ open, initialQuery }: { open: (m: ModalState) => void; i
           </thead>
           <tbody>
             {rows.map((t) => (
-              <tr key={t.id} className="clickable" onClick={() => open({ type: 'receipt', txn: t })}>
+              <tr key={t.id} {...rowProps(() => open({ type: 'receipt', txn: t }))}>
                 <td>
                   <div className="cell-main">
                     <span className="asset-mark" style={{ background: txnTint(t.type) }}>
@@ -1791,6 +1849,15 @@ function Topbar({
   const [bell, setBell] = useState(false);
   const unread = s.notifications.filter((n) => n.unread).length;
 
+  useEffect(() => {
+    if (!bell) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setBell(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [bell]);
+
   return (
     <header className="topbar">
       <div className="tb-title">
@@ -1886,7 +1953,7 @@ function Workspace() {
   const s = useStore();
   const [page, setPage] = useState<Page>('overview');
   const [modal, setModal] = useState<ModalState>(null);
-  const [activityQuery, setActivityQuery] = useState('');
+  const [activitySearch, setActivitySearch] = useState({ q: '', n: 0 });
   const unread = s.notifications.filter((n) => n.unread).length;
 
   const dateLabel = useMemo(
@@ -1916,6 +1983,7 @@ function Workspace() {
               type="button"
               className={`sb-item${page === item.id ? ' on' : ''}`}
               onClick={() => setPage(item.id)}
+              aria-label={item.label}
               aria-current={page === item.id ? 'page' : undefined}
             >
               {item.icon}
@@ -1945,7 +2013,7 @@ function Workspace() {
         <Topbar
           page={page}
           onSearch={(q) => {
-            setActivityQuery(q);
+            setActivitySearch((prev) => ({ q, n: prev.n + 1 }));
             setPage('activity');
           }}
         />
@@ -1953,7 +2021,7 @@ function Workspace() {
         {page === 'wallet' && <WalletPage open={open} />}
         {page === 'savings' && <SavingsPage open={open} />}
         {page === 'invest' && <InvestPage open={open} />}
-        {page === 'activity' && <ActivityPage open={open} initialQuery={activityQuery} />}
+        {page === 'activity' && <ActivityPage open={open} initialQuery={activitySearch.q} searchNonce={activitySearch.n} />}
         {page === 'settings' && <SettingsPage open={open} />}
       </div>
 

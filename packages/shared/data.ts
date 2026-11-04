@@ -483,7 +483,7 @@ export const transactions: Txn[] = [
   {
     id: 'tx-7',
     title: 'Card funding attempt',
-    meta: 'Visa ·• 2208 · declined by issuer',
+    meta: 'Visa ••2208 · declined by issuer',
     amount: 20000,
     date: '2026-10-16T15:03:00+01:00',
     status: 'Failed',
@@ -512,7 +512,7 @@ export const notifications: Notification[] = [
   },
   {
     id: 'nt-2',
-    title: 'You’re 48% to your laptop goal',
+    title: 'You’re 48% of the way to your laptop goal',
     body: '₦412,500 of ₦850,000 saved. Your next ₦50,000 auto-save runs on 5 Nov.',
     time: '2026-11-01T09:00:00+01:00',
     kind: 'savings',

@@ -448,7 +448,7 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(246, 241, 230, 0.55);
+  color: rgba(246, 241, 230, 0.72);
 }
 
 .cs-info-card {
@@ -560,7 +560,7 @@
   font-family: var(--font-display);
   font-size: 11px;
   font-weight: 700;
-  color: rgba(243, 239, 228, 0.4);
+  color: rgba(243, 239, 228, 0.62);
 }
 
 .cs-fragment-card strong {
@@ -573,7 +573,7 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: rgba(243, 239, 228, 0.5);
+  color: rgba(243, 239, 228, 0.64);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -645,7 +645,7 @@
   justify-self: end;
   font-size: 12.5px;
   line-height: 1.65;
-  color: rgba(243, 239, 228, 0.55);
+  color: rgba(243, 239, 228, 0.68);
 }
 
 /* personas */
@@ -1004,7 +1004,7 @@
 }
 
 .cs-panel h3 span {
-  color: rgba(243, 239, 228, 0.35);
+  color: rgba(243, 239, 228, 0.62);
   letter-spacing: 0;
   text-transform: none;
   font-size: 10.5px;
@@ -1041,7 +1041,7 @@
   font-family: var(--font-ui);
   font-size: 9.5px;
   font-weight: 600;
-  color: rgba(243, 239, 228, 0.45);
+  color: rgba(243, 239, 228, 0.64);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -1076,7 +1076,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(243, 239, 228, 0.4);
+  color: rgba(243, 239, 228, 0.62);
 }
 
 .cs-money-spec {
@@ -1093,7 +1093,7 @@
   padding: 12px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 12px;
-  color: rgba(243, 239, 228, 0.55);
+  color: rgba(243, 239, 228, 0.68);
 }
 
 .cs-money-line b {
@@ -1147,7 +1147,7 @@
   border-radius: 11px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(243, 239, 228, 0.55);
+  color: rgba(243, 239, 228, 0.68);
   font-size: 12px;
   font-weight: 600;
 }
@@ -1788,7 +1788,7 @@
   color: var(--cs-muted);
 }
 
-.cs-footer h4 {
+.cs-footer h3 {
   font-family: var(--font-ui);
   font-size: 10.5px;
   font-weight: 800;
@@ -2001,6 +2001,10 @@
   .cs-float-desktop {
     width: 280px;
     left: 0;
+  }
+  .cs-float-desktop .mini-desktop {
+    transform-origin: top left;
+    transform: scale(0.6);
   }
   .cs-float-phone {
     right: -6px;

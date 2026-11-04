@@ -121,7 +121,12 @@ function Nav() {
               {l.label}
             </a>
           ))}
-          <a className="btn btn-primary btn-block" href={mobileHref} onClick={() => setOpen(false)}>
+          <a
+            className="btn btn-primary btn-block"
+            href={mobileHref}
+            onClick={() => setOpen(false)}
+            {...(isLive(links.mobile) ? { target: '_blank', rel: 'noreferrer' } : {})}
+          >
             Get the app <ArrowRight size={16} />
           </a>
         </div>
@@ -131,7 +136,7 @@ function Nav() {
 }
 
 function PhoneArt() {
-  const movers = stocks.filter((s) => s.exchange === 'NGX').slice(0, 3);
+  const movers = stocks.filter((s) => s.exchange === 'NGX').slice(0, 2);
   return (
     <div className="phone-shell" aria-hidden="true">
       <div className="phone-screen">
@@ -153,6 +158,10 @@ function PhoneArt() {
           <span>Total balance</span>
           <strong className="money">₦1,240,400.00</strong>
           <div className="ps-split">
+            <div>
+              <span>Wallet</span>
+              <b>₦268,400</b>
+            </div>
             <div>
               <span>Savings</span>
               <b>₦807,500</b>
@@ -199,14 +208,14 @@ function PhoneArt() {
         </div>
         <div className="ps-card">
           <div className="ps-card-head">
-            <b>Today’s performance</b>
+            <b>Portfolio return</b>
             <span style={{ color: 'var(--green-600)' }}>+4.8%</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 6 }}>
             <b className="money" style={{ fontFamily: 'var(--font-display)', fontSize: 16, letterSpacing: '-0.03em' }}>
               ₦73,000
             </b>
-            <span style={{ fontSize: 8, color: 'var(--site-muted)', fontWeight: 700 }}>Total return</span>
+            <span style={{ fontSize: 8, color: 'var(--site-muted)', fontWeight: 700 }}>All time</span>
           </div>
         </div>
         <div className="ps-card">
@@ -478,7 +487,7 @@ function Products() {
       icon: <Zap size={22} />,
       title: 'Savings with a job',
       copy: 'Flexible money you can reach, fixed money that earns more, and target plans that keep a goal moving with auto-save.',
-      points: ['Flexible · withdraw anytime', 'Fixed · 16% p.a. illustration', 'Target · progress you can see'],
+      points: ['Flexible · withdraw anytime', 'Fixed · 16% p.a. illustrative', 'Target · progress you can see'],
       visual: <PlansVisual />,
     },
     {
@@ -732,7 +741,7 @@ function Security() {
     {
       icon: <Landmark size={20} />,
       title: 'Licensed partners hold the risk',
-      copy: 'Deposits sit with partner banks, payments run on licensed rails and share orders are routed to a SEC-registered broker — not executed by Apex itself.',
+      copy: 'Deposits sit with partner banks, payments run on licensed rails and share orders are routed to an SEC-registered broker — not executed by Apex itself.',
     },
     {
       icon: <ShieldCheck size={20} />,
@@ -767,8 +776,8 @@ function Security() {
         <div className="kyc-levels">
           {[
             { level: 'Level 1', title: 'Phone + email', items: ['Browse products', 'Small wallet limits', 'Upgrade any time'] },
-            { level: 'Level 2', title: 'BVN + NIN', items: ['Full wallet limits', 'Savings and transfers', 'Share investing'] },
-            { level: 'Level 3', title: 'Address + income', items: ['Higher limits', 'International shares', 'Reviewed manually'] },
+            { level: 'Level 2', title: 'BVN + NIN', items: ['Full wallet limits', 'Savings and transfers', 'NGX + US share investing'] },
+            { level: 'Level 3', title: 'Address + income', items: ['Higher limits', 'Higher FX allowance', 'Reviewed manually'] },
           ].map((k) => (
             <div className="kyc reveal" key={k.level}>
               <div className="kyc-top">
@@ -792,10 +801,10 @@ function Security() {
 }
 
 const fees = [
-  { what: 'Account opening', how: 'No charge', launch: 'Free' },
-  { what: 'Apex-to-Apex transfer', how: 'Included', launch: 'Free' },
-  { what: 'Bank withdrawal', how: 'Network fee, shown before confirmation', launch: 'Quoted' },
-  { what: 'Savings plans', how: 'No maintenance fee; early-access rules on each plan', launch: 'No fee' },
+  { what: 'Account opening', how: 'No Apex fee', launch: 'Free' },
+  { what: 'Apex-to-Apex transfer', how: 'Instant, by Apex tag or phone number', launch: 'Free' },
+  { what: 'Bank withdrawal', how: 'Network fee passed through, shown before confirmation', launch: 'Pass-through' },
+  { what: 'Savings plans', how: 'No maintenance fee; early-access rules on each plan', launch: 'Free' },
   { what: 'Share orders', how: 'Brokerage fee + statutory levies, quoted up front', launch: 'Quoted' },
   { what: 'US shares', how: 'FX rate and conversion fee shown before the order', launch: 'Quoted' },
 ];
@@ -866,7 +875,7 @@ const faqs = [
   },
   {
     q: 'How does share investing work?',
-    a: 'Orders are routed to a SEC-registered broker. You see the delayed price, estimated units, brokerage fee and levies before submitting. Shares can fall as well as rise, and Apex does not promise a return.',
+    a: 'Orders are routed to an SEC-registered broker. You see the delayed price, estimated units, brokerage fee and levies before submitting. Shares can fall as well as rise, and Apex does not promise a return.',
   },
   {
     q: 'Do I need my BVN or NIN to start?',
@@ -896,6 +905,7 @@ function Faq() {
               <button
                 type="button"
                 className="faq-q"
+                id={`faq-q-${i}`}
                 aria-expanded={open === i}
                 aria-controls={`faq-${i}`}
                 onClick={() => setOpen(open === i ? null : i)}
@@ -903,7 +913,13 @@ function Faq() {
                 {f.q}
                 <ChevronDown size={18} />
               </button>
-              <div className="faq-a" id={`faq-${i}`} role="region">
+              <div
+                className="faq-a"
+                id={`faq-${i}`}
+                role="region"
+                aria-labelledby={`faq-q-${i}`}
+                aria-hidden={open !== i}
+              >
                 <div>
                   <p>{f.a}</p>
                 </div>
@@ -936,7 +952,7 @@ function Install() {
       <div className="wrap">
         <div className="install reveal">
           <div>
-            <span className="eyebrow" style={{ color: 'rgba(255,255,255,.6)' }}>
+            <span className="eyebrow" style={{ color: 'rgba(255,255,255,.78)' }}>
               <Smartphone size={13} /> Installable web app
             </span>
             <h2>
@@ -955,7 +971,7 @@ function Install() {
                 <Monitor size={16} /> Open desktop
               </a>
             </div>
-            <p style={{ fontSize: 11, marginTop: 16, color: 'rgba(255,255,255,.45)' }}>
+            <p style={{ fontSize: 11, marginTop: 16, color: 'rgba(255,255,255,.72)' }}>
               <CircleAlert size={11} style={{ display: 'inline', marginRight: 5 }} />
               Demo build · no real money · not a licensed financial institution.
             </p>
@@ -983,14 +999,14 @@ function Footer() {
             </p>
           </div>
           <div className="footer-col">
-            <h4>Product</h4>
+            <h3>Product</h3>
             <a href="#products">Savings</a>
             <a href="#products">Wallet &amp; transfers</a>
             <a href="#products">Invest</a>
             <a href="#pricing">Pricing</a>
           </div>
           <div className="footer-col">
-            <h4>Surfaces</h4>
+            <h3>Surfaces</h3>
             <a href={mobileHref} {...(isLive(links.mobile) ? { target: '_blank', rel: 'noreferrer' } : {})}>
               Mobile app
             </a>
@@ -1006,7 +1022,7 @@ function Footer() {
             )}
           </div>
           <div className="footer-col">
-            <h4>Trust</h4>
+            <h3>Trust</h3>
             <a href="#security">Security</a>
             <a href="#security">KYC levels</a>
             <a href="#faq">FAQ</a>

@@ -1,18 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Briefcase,
   Check,
   CircleAlert,
-  Clock,
   FileCheck,
   Fingerprint,
   Globe,
-  Landmark,
-  Layers,
   LineChart,
   Lock,
   Monitor,
@@ -25,7 +21,6 @@ import {
   Target,
   TrendingUp,
   User,
-  Users,
   Wallet,
   Zap,
 } from 'lucide-react';
@@ -779,27 +774,27 @@ function System() {
             </h3>
             <div className="cs-decisions" style={{ marginTop: 6 }}>
               <div className="cs-decision" style={{ borderColor: 'rgba(255,255,255,.08)' }}>
-                <b style={{ color: 'rgba(243,239,228,.45)' }}>Radii</b>
+                <b style={{ color: 'rgba(243,239,228,.64)' }}>Radii</b>
                 <p style={{ color: 'rgba(243,239,228,.78)' }}>
                   12px controls · 16px cards · 22px plan surfaces · pill for status.
                 </p>
               </div>
               <div className="cs-decision" style={{ borderColor: 'rgba(255,255,255,.08)' }}>
-                <b style={{ color: 'rgba(243,239,228,.45)' }}>Actions</b>
+                <b style={{ color: 'rgba(243,239,228,.64)' }}>Actions</b>
                 <p style={{ color: 'rgba(243,239,228,.78)' }}>
                   One filled primary per screen. Destructive money actions never sit beside the
                   primary without a review step.
                 </p>
               </div>
               <div className="cs-decision" style={{ borderColor: 'rgba(255,255,255,.08)' }}>
-                <b style={{ color: 'rgba(243,239,228,.45)' }}>Status</b>
+                <b style={{ color: 'rgba(243,239,228,.64)' }}>Status</b>
                 <p style={{ color: 'rgba(243,239,228,.78)' }}>
                   Colour is reinforcement, never the only signal. Every status includes a word and
                   an icon.
                 </p>
               </div>
               <div className="cs-decision" style={{ border: 0 }}>
-                <b style={{ color: 'rgba(243,239,228,.45)' }}>Language</b>
+                <b style={{ color: 'rgba(243,239,228,.64)' }}>Language</b>
                 <p style={{ color: 'rgba(243,239,228,.78)' }}>
                   “Interest”, not “yield”. “Price can fall”, not “growth guaranteed”. Fees always
                   carry an amount.
@@ -879,7 +874,7 @@ function Surfaces() {
               >
                 {isLive(c.link) ? c.action : 'Launching with this release'} <ArrowRight size={14} />
               </a>
-              <div className={`cs-surface-preview${c.title === 'The operating view' ? ' desktop-preview' : ''}`}>
+              <div className={`cs-surface-preview${c.title === 'The operating view' ? ' desktop-preview' : ''}`} aria-hidden="true">
                 {c.preview}
               </div>
             </article>
@@ -946,7 +941,7 @@ function DeepDive() {
       copy: 'The home screen answers three questions in order: how much do I have, where is it, and what changed? Everything else is secondary.',
       visual: <MiniPhone variant="home" />,
       decisions: [
-        ['Hierarchy', 'One total balance, split into savings and investments — the same categories used everywhere else.'],
+        ['Hierarchy', 'One total balance, split into wallet, savings and investments — the same categories used everywhere else.'],
         ['Quick actions', 'Add money and withdraw are always visible; savings and investing live one tap away.'],
         ['Performance', 'Returns appear only with a live portfolio, and always with a timestamp and currency.'],
         ['Honesty', 'Demo data is labelled as illustrative; no invented user counts or returns.'],
@@ -992,7 +987,7 @@ function DeepDive() {
         <div className="cs-deep">
           {rows.map((r) => (
             <div className="cs-deep-row reveal" key={r.title}>
-              <div className="cs-deep-visual">{r.visual}</div>
+              <div className="cs-deep-visual" aria-hidden="true">{r.visual}</div>
               <div className="cs-deep-copy">
                 <span className="cs-deep-label">{r.label}</span>
                 <h3>{r.title}</h3>
@@ -1102,7 +1097,7 @@ function Measures() {
     {
       tag: 'North star',
       name: 'Monthly active users',
-      why: 'Activation quality, not installs. Track 7-day return after the first deposit.',
+      why: 'Unique users who move money in the last 30 days. Installs and sign-ups do not count.',
     },
     {
       tag: 'Trust',
@@ -1122,7 +1117,7 @@ function Measures() {
     {
       tag: 'Habit',
       name: '30/90-day retention',
-      why: 'Cohort by income pattern and acquisition channel — not one blended number.',
+      why: 'Cohort by income pattern and acquisition channel; include 7-day return after the first deposit.',
     },
     {
       tag: 'Reliability',
@@ -1245,7 +1240,7 @@ function Cta() {
         <div className="cs-cta-bg" />
         <div className="cs-cta-inner">
           <div>
-            <span className="eyebrow" style={{ color: 'rgba(245,241,231,.55)' }}>
+            <span className="eyebrow" style={{ color: 'rgba(245,241,231,.7)' }}>
               The build
             </span>
             <h2>
@@ -1284,7 +1279,7 @@ function Cta() {
           </div>
         </div>
         {!anyLive && (
-          <p style={{ position: 'relative', zIndex: 2, marginTop: 26, fontSize: 11, color: 'rgba(245,241,231,.45)' }}>
+          <p style={{ position: 'relative', zIndex: 2, marginTop: 26, fontSize: 11, color: 'rgba(245,241,231,.66)' }}>
             Links go live with this release.
           </p>
         )}
@@ -1307,7 +1302,7 @@ function Footer() {
             </p>
           </div>
           <div>
-            <h4>Explore</h4>
+            <h3>Explore</h3>
             <ul>
               <li>
                 <a href="#brief">The brief</a>
@@ -1324,7 +1319,7 @@ function Footer() {
             </ul>
           </div>
           <div>
-            <h4>Live surfaces</h4>
+            <h3>Live surfaces</h3>
             <ul>
               <li>
                 <a href={launch(links.mobile, '#surfaces')} {...external(links.mobile)}>
@@ -1364,7 +1359,7 @@ function Footer() {
 export default function App() {
   useReveal();
   return (
-    <div className="cs" id="top">
+    <div className="cs">
       <a className="skip-link" href="#brief">
         Skip to case study
       </a>

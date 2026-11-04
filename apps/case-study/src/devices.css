@@ -219,7 +219,7 @@
 
 .mp-balance .cols {
   display: flex;
-  gap: 20px;
+  gap: 14px;
   margin-top: 13px;
 }
 
@@ -233,9 +233,10 @@
 .mp-balance .cols b {
   display: block;
   margin-top: 2px;
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .mp-actions {
