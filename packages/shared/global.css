@@ -1,4 +1,5 @@
-:root {
+:root,
+.theme-light {
   --blue-950: #061236;
   --blue-900: #081d5c;
   --blue-800: #0034a8;

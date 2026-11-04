@@ -1378,7 +1378,7 @@ function AuthFlow({
   if (stage === 'auth') {
     const signup = mode === 'signup';
     return (
-      <div className="auth">
+      <div className="auth theme-light">
         <button className="back" aria-label="Back" onClick={() => go('welcome')}>
           <ArrowLeft size={20} />
         </button>
@@ -1465,7 +1465,7 @@ function AuthFlow({
 
   if (stage === 'otp') {
     return (
-      <div className="auth">
+      <div className="auth theme-light">
         <button className="back" aria-label="Back" onClick={() => go('auth')}>
           <ArrowLeft size={20} />
         </button>
@@ -1512,7 +1512,7 @@ function AuthFlow({
   }
 
   return (
-    <div className="auth pin">
+    <div className="auth theme-light pin">
       <button className="back" aria-label="Back" onClick={() => go('otp')}>
         <ArrowLeft size={20} />
       </button>

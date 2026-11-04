@@ -1561,6 +1561,11 @@ button {
   background: #fff;
 }
 
+.auth.theme-light {
+  color: var(--ink-900);
+  color-scheme: light;
+}
+
 .back {
   position: absolute;
   top: calc(18px + env(safe-area-inset-top));
@@ -3351,6 +3356,29 @@ html[data-theme='dark'] .install-card {
 
 html[data-theme='dark'] .auth {
   background: var(--surface);
+}
+
+html[data-theme='dark'] .auth.theme-light {
+  background: #fff;
+  color: var(--ink-900);
+  color-scheme: light;
+}
+
+html[data-theme='dark'] .theme-light .auth-mark {
+  background: var(--blue-50);
+  color: var(--blue-600);
+}
+
+html[data-theme='dark'] .theme-light .field > input,
+html[data-theme='dark'] .theme-light .field select,
+html[data-theme='dark'] .theme-light .phone-field {
+  background: #f6f8fb;
+  border-color: var(--line);
+  color: var(--ink-900);
+}
+
+html[data-theme='dark'] .theme-light .keypad button:active {
+  background: #f2f5fb;
 }
 
 html[data-theme='dark'] .auth-mark {
