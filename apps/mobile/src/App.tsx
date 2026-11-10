@@ -14,6 +14,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  Fingerprint,
   Home,
   Info,
   Landmark,
@@ -52,6 +53,14 @@ import type { Plan, PlanKind, Txn } from '@shared/data';
 import { links, isLive } from '@shared/links';
 import { stockFor, useStore } from './store';
 import type { MoneyResult } from './store';
+import {
+  createPasskey,
+  passkeyErrorMessage,
+  passkeySupported,
+  readPasskey,
+  verifyPasskey,
+} from './passkey';
+import type { StoredPasskey } from './passkey';
 
 type Tab = 'home' | 'save' | 'invest' | 'profile';
 type MoneyMode = 'add' | 'withdraw' | 'transfer' | 'plan-add' | 'plan-withdraw';
@@ -1306,6 +1315,11 @@ function AuthFlow({
   const [code, setCode] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const [passkey, setPasskey] = useState<StoredPasskey | null>(() => readPasskey());
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyNote, setPasskeyNote] = useState('');
+  const [askForPasskey, setAskForPasskey] = useState(false);
+  const supportsPasskey = passkeySupported();
 
   const startFreshRef = useRef(store.startFresh);
   startFreshRef.current = store.startFresh;
@@ -1316,6 +1330,44 @@ function AuthFlow({
     setError('');
     setPin('');
     setStage(next);
+  };
+
+  const enterWithPasskey = () => {
+    signInDemoRef.current();
+    onDone();
+  };
+
+  const handlePasskey = async () => {
+    setPasskeyNote('');
+    if (!passkey) {
+      setAskForPasskey(true);
+      return;
+    }
+    setPasskeyBusy(true);
+    try {
+      await verifyPasskey();
+      enterWithPasskey();
+    } catch (err) {
+      setPasskeyNote(passkeyErrorMessage(err));
+    } finally {
+      setPasskeyBusy(false);
+    }
+  };
+
+  const handleCreatePasskey = async () => {
+    setPasskeyBusy(true);
+    setPasskeyNote('');
+    try {
+      const stored = await createPasskey(name.trim() || 'Apex demo account');
+      setPasskey(stored);
+      setAskForPasskey(false);
+      enterWithPasskey();
+    } catch (err) {
+      setAskForPasskey(false);
+      setPasskeyNote(passkeyErrorMessage(err));
+    } finally {
+      setPasskeyBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -1465,6 +1517,61 @@ function AuthFlow({
             {signup ? 'Send code' : 'Continue'} <ArrowRight size={17} />
           </button>
         </form>
+        {!signup && supportsPasskey && (
+          <div className="passkey-block">
+            <div className="passkey-rule">
+              <span>or</span>
+            </div>
+            <button
+              type="button"
+              className="passkey-btn"
+              onClick={handlePasskey}
+              disabled={passkeyBusy}
+            >
+              <Fingerprint size={18} />
+              {passkeyBusy
+                ? 'Waiting for your device…'
+                : passkey
+                  ? 'Sign in with a passkey'
+                  : 'Use a passkey'}
+            </button>
+            {passkeyNote && (
+              <p className="passkey-note" role="status">
+                {passkeyNote}
+              </p>
+            )}
+            {askForPasskey ? (
+              <div className="passkey-ask" role="dialog" aria-label="Set up a passkey">
+                <b>Set up a passkey on this device?</b>
+                <p>
+                  Use your fingerprint, face or screen lock. In this demo the passkey opens the
+                  demo account without a code.
+                </p>
+                <div>
+                  <button
+                    type="button"
+                    className="passkey-create"
+                    onClick={handleCreatePasskey}
+                    disabled={passkeyBusy}
+                  >
+                    Create passkey
+                  </button>
+                  <button
+                    type="button"
+                    className="passkey-cancel"
+                    onClick={() => setAskForPasskey(false)}
+                  >
+                    Not now
+                  </button>
+                </div>
+              </div>
+            ) : (
+              !passkey && (
+                <p className="passkey-hint">No passkey on this device yet. You can add one.</p>
+              )
+            )}
+          </div>
+        )}
         <p className="legal">
           By continuing you agree to the demo terms. Apex Finance is a portfolio concept, not a licensed financial
           institution.

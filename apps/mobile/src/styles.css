@@ -1700,6 +1700,117 @@ button {
   padding: 6px;
 }
 
+.passkey-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.passkey-rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-400);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.passkey-rule::before,
+.passkey-rule::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.passkey-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  height: 50px;
+  border-radius: 999px;
+  border: 1px solid var(--blue-200);
+  background: #fff;
+  color: var(--blue-600);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.passkey-btn:disabled {
+  opacity: 0.65;
+}
+
+.passkey-hint,
+.passkey-note {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-500);
+}
+
+.passkey-note {
+  font-weight: 600;
+  color: var(--blue-700);
+}
+
+.passkey-ask {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #f6f8fb;
+}
+
+.passkey-ask b {
+  font-size: 13px;
+  color: var(--ink-900);
+}
+
+.passkey-ask p {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ink-500);
+}
+
+.passkey-ask > div {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.passkey-create,
+.passkey-cancel {
+  flex: 1;
+  height: 42px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.passkey-create {
+  border: 0;
+  background: var(--blue-600);
+  color: #fff;
+}
+
+.passkey-create:disabled {
+  opacity: 0.65;
+}
+
+.passkey-cancel {
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  color: var(--ink-700);
+}
+
 .legal {
   margin: auto 0 0;
   padding-top: 24px;
