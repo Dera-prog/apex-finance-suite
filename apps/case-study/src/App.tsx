@@ -78,13 +78,6 @@ function Nav() {
           <a href="#deep-dive">Deep dive</a>
           <a href="#measure">Measures</a>
         </nav>
-        <a
-          className="btn btn-primary"
-          href={launch(links.mobile, '#surfaces')}
-          {...external(links.mobile)}
-        >
-          Open mobile app <ArrowUpRight size={15} />
-        </a>
       </div>
     </header>
   );
@@ -114,13 +107,6 @@ function Hero() {
           <div className="cs-hero-actions">
             <a className="btn btn-primary" href="#brief">
               Read the case study <ArrowDown size={16} />
-            </a>
-            <a
-              className="btn btn-ghost"
-              href={launch(links.mobile, '#surfaces')}
-              {...external(links.mobile)}
-            >
-              <Smartphone size={16} /> Open the mobile app
             </a>
           </div>
           <dl className="cs-meta">
