@@ -1732,11 +1732,40 @@
 .cs-cta-inner {
   position: relative;
   z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 30px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 620px;
+  align-items: center;
+  gap: 44px;
+}
+
+.cs-cta-tour {
+  margin: 0;
+  min-width: 0;
+}
+
+.cs-cta-tour video {
+  display: block;
+  width: 100%;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #0b1533;
+  box-shadow: 0 40px 70px -40px rgba(0, 0, 0, 0.85);
+}
+
+.cs-cta-tour figcaption {
+  margin-top: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(245, 241, 231, 0.6);
+}
+
+@media (max-width: 1080px) {
+  .cs-cta-inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+  }
 }
 
 .cs-cta h2 {

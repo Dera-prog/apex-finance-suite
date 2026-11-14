@@ -1235,6 +1235,19 @@ function Cta() {
               a desktop workspace, and a public website that states the terms plainly.
             </p>
           </div>
+          <figure className="cs-cta-tour">
+            <video
+              src="./assets/surfaces-tour.mp4"
+              poster="./assets/surfaces-poster.jpg"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              aria-label="Recorded tour of the Apex mobile app, desktop app and website"
+            />
+            <figcaption>Mobile · Desktop · Website — recorded from the live builds</figcaption>
+          </figure>
         </div>
       </div>
     </section>
