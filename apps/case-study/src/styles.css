@@ -1761,12 +1761,6 @@
   color: rgba(245, 241, 231, 0.7);
 }
 
-.cs-cta-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
 .cs-footer {
   padding: 70px 0 36px;
   background: var(--paper);

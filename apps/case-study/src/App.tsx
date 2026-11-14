@@ -8,15 +8,12 @@ import {
   CircleAlert,
   FileCheck,
   Fingerprint,
-  Globe,
   LineChart,
   Lock,
-  Monitor,
   Plus,
   Quote,
   RefreshCw,
   ShieldCheck,
-  Smartphone,
   Sparkles,
   Target,
   TrendingUp,
@@ -1219,7 +1216,6 @@ function Reflection() {
 }
 
 function Cta() {
-  const anyLive = isLive(links.mobile) || isLive(links.desktop) || isLive(links.website);
   return (
     <section className="cs-wrap">
       <div className="cs-cta reveal">
@@ -1239,36 +1235,7 @@ function Cta() {
               a desktop workspace, and a public website that states the terms plainly.
             </p>
           </div>
-          <div className="cs-cta-actions">
-            <a
-              className="btn btn-primary"
-              href={launch(links.mobile, '#surfaces')}
-              {...external(links.mobile)}
-            >
-              <Smartphone size={16} /> Mobile app
-            </a>
-            <a
-              className="btn btn-white"
-              href={launch(links.desktop, '#surfaces')}
-              {...external(links.desktop)}
-            >
-              <Monitor size={16} /> Desktop
-            </a>
-            <a
-              className="btn"
-              style={{ border: '1px solid rgba(255,255,255,.26)', color: '#fff' }}
-              href={launch(links.website, '#surfaces')}
-              {...external(links.website)}
-            >
-              <Globe size={16} /> Website
-            </a>
-          </div>
         </div>
-        {!anyLive && (
-          <p style={{ position: 'relative', zIndex: 2, marginTop: 26, fontSize: 11, color: 'rgba(245,241,231,.66)' }}>
-            Links go live with this release.
-          </p>
-        )}
       </div>
     </section>
   );
