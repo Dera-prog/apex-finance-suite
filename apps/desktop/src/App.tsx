@@ -50,7 +50,7 @@ import type { Bank, PlanKind, Stock, Txn } from '@shared/data';
 import type { PlanDto, TxnDto } from '@shared/api';
 import { abs, add, formatNgn, formatUsd, parseNgn, pctOf, sub, sum, times, toMinor } from '@shared/money';
 import type { Minor } from '@shared/money';
-import { StoreProvider, useStore } from './store';
+import { hasStoredSession, StoreProvider, useStore } from './store';
 import './styles.css';
 
 type Page = 'overview' | 'wallet' | 'savings' | 'invest' | 'activity' | 'settings' | 'account';
@@ -264,7 +264,7 @@ function ErrorLine({ message }: { message: string | null }) {
 function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; onClose: () => void }) {
   const store = useStore();
   const [amount, setAmount] = useState('');
-  const [bankId, setBankId] = useState(store.banks[0].id);
+  const [bankId, setBankId] = useState(store.banks.find((b) => b.primary)?.id ?? store.banks[0]?.id ?? '');
   const [recipient, setRecipient] = useState('Chinedu Okafor');
   const [tag, setTag] = useState('@chinedu');
   const [error, setError] = useState<string | null>(null);
@@ -272,6 +272,7 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
 
   const value = parseNgn(amount) ?? toMinor(0);
   const bank = store.banks.find((b) => b.id === bankId) ?? store.banks[0];
+  const bankName = bank?.name ?? 'GTBank';
 
   const copy = {
     add: { title: 'Add money', sub: 'Fund your wallet from a linked Nigerian bank. Demo funds settle instantly.' },
@@ -285,9 +286,9 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
     setBusy(true);
     const result =
       mode === 'add'
-        ? await store.addMoney(value, bank.name)
+        ? await store.addMoney(value, bankName)
         : mode === 'withdraw'
-          ? store.withdraw(value, bank.name)
+          ? store.withdraw(value, bankName)
           : store.transfer(value, `${recipient}${tag ? ` (${tag})` : ''}`);
     if (!result.ok) {
       setBusy(false);
@@ -328,13 +329,17 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
             <label className="field-label" htmlFor="bank">
               {mode === 'add' ? 'Fund from' : 'Withdraw to'}
             </label>
-            <select id="bank" className="input" value={bankId} onChange={(e) => setBankId(e.target.value)}>
-              {store.banks.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} · {b.account}
-                </option>
-              ))}
-            </select>
+            {store.banks.length > 0 ? (
+              <select id="bank" className="input" value={bankId} onChange={(e) => setBankId(e.target.value)}>
+                {store.banks.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} · {b.account}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="muted-note">Demo funding uses the test bank rails. No real bank is linked yet.</p>
+            )}
           </div>
         )}
         <div className="preview">
@@ -2291,11 +2296,9 @@ function AuthFlow({
   const [code, setCode] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
-
-  const startFreshRef = useRef(store.startFresh);
-  startFreshRef.current = store.startFresh;
-  const signInDemoRef = useRef(store.signInDemo);
-  signInDemoRef.current = store.signInDemo;
+  const [challengeId, setChallengeId] = useState<string | undefined>();
+  const [devCode, setDevCode] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
 
   const go = (next: Stage) => {
     setError('');
@@ -2303,17 +2306,69 @@ function AuthFlow({
     setStage(next);
   };
 
+  const submitAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setError('');
+    if (mode === 'signup') {
+      if (name.trim().length < 2) {
+        setError('Tell us your full name.');
+        return;
+      }
+      if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+        setError('Enter a valid email address.');
+        return;
+      }
+    }
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 10) {
+      setError('Enter a valid Nigerian phone number.');
+      return;
+    }
+    setBusy(true);
+    const result = await store.requestSignInCode(`+234${digits.slice(-10)}`);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error ?? 'Could not send a code.');
+      return;
+    }
+    setChallengeId(result.challengeId);
+    setDevCode(result.devCode);
+    go('otp');
+  };
+
+  const submitCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setError('');
+    if (code.length < 6) {
+      setError('Enter all six digits.');
+      return;
+    }
+    setBusy(true);
+    const result = await store.verifySignInCode({
+      challengeId,
+      code,
+      name,
+      email,
+      phone: `+234 ${phone.trim()}`,
+      mode,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error ?? 'That code did not work.');
+      return;
+    }
+    go('pin');
+  };
+
   useEffect(() => {
     if (pin.length === 4) {
-      const timer = window.setTimeout(() => {
-        if (mode === 'signup') startFreshRef.current({ name, email, phone: `+234 ${phone.trim()}` });
-        else signInDemoRef.current();
-        onDone();
-      }, 260);
+      const timer = window.setTimeout(onDone, 260);
       return () => window.clearTimeout(timer);
     }
     return undefined;
-  }, [pin, mode, name, email, phone, onDone]);
+  }, [pin, onDone]);
 
   useEffect(() => {
     if (stage !== 'pin') return;
@@ -2394,30 +2449,9 @@ function AuthFlow({
           <p className="auth-sub">
             {signup
               ? 'Use a Nigerian number. We will send a six-digit code to confirm it.'
-              : 'Sign in with the phone number registered on your Apex account. Demo: any number opens the returning demo account.'}
+              : 'Sign in with the phone number registered on your Apex account. Demo: 803 555 0147 opens the shared demo account; any other number gets its own.'}
           </p>
-          <form
-            className="auth-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (signup) {
-                if (name.trim().length < 2) {
-                  setError('Tell us your full name.');
-                  return;
-                }
-                if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
-                  setError('Enter a valid email address.');
-                  return;
-                }
-              }
-              const digits = phone.replace(/\D/g, '');
-              if (digits.length < 10) {
-                setError('Enter a valid Nigerian phone number.');
-                return;
-              }
-              go('otp');
-            }}
-          >
+          <form className="auth-form" onSubmit={submitAuth}>
             {signup && (
               <label className="auth-field">
                 <span>Full name</span>
@@ -2458,8 +2492,8 @@ function AuthFlow({
               </div>
             </label>
             {error && <p className="auth-error">{error}</p>}
-            <button className="btn btn-primary btn-block" type="submit">
-              {signup ? 'Send code' : 'Continue'} <ArrowRight size={16} />
+            <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
+              {busy ? 'Sending code…' : signup ? 'Send code' : 'Continue'} <ArrowRight size={16} />
             </button>
           </form>
           <p className="auth-legal">
@@ -2483,19 +2517,10 @@ function AuthFlow({
           </div>
           <h1>Enter your code</h1>
           <p className="auth-sub">
-            Sent to +234 {phone}. <b className="demo-hint">Demo: any 6 digits work.</b>
+            Sent to +234 {phone}.{' '}
+            <b className="demo-hint">{devCode ? `Demo: the code is ${devCode}.` : 'Offline demo: any 6 digits work.'}</b>
           </p>
-          <form
-            className="auth-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (code.length < 6) {
-                setError('Enter all six digits.');
-                return;
-              }
-              go('pin');
-            }}
-          >
+          <form className="auth-form" onSubmit={submitCode}>
             <label className="auth-field">
               <span>Six-digit code</span>
               <input
@@ -2509,11 +2534,11 @@ function AuthFlow({
               />
             </label>
             {error && <p className="auth-error">{error}</p>}
-            <button className="btn btn-primary btn-block" type="submit">
-              Verify code
+            <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
+              {busy ? 'Checking…' : 'Verify code'}
             </button>
-            <button className="auth-demo-link" type="button" onClick={() => setCode('123456')}>
-              Use demo code 123456
+            <button className="auth-demo-link" type="button" onClick={() => setCode(devCode ?? '123456')}>
+              Use demo code {devCode ?? '123456'}
             </button>
           </form>
         </div>
@@ -2639,28 +2664,30 @@ function NewOverview({
         </div>
       </div>
 
-      <div className="points-strip">
-        <span className="points-icon">
-          <Sparkles size={18} />
-        </span>
-        <div>
-          <b>Welcome to Apex</b>
-          <span>Add money to activate savings and investing.</span>
+      {s.txns.length === 0 && (
+        <div className="points-strip">
+          <span className="points-icon">
+            <Sparkles size={18} />
+          </span>
+          <div>
+            <b>Welcome to Apex</b>
+            <span>Add money to activate savings and investing.</span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-soft btn-sm"
+            onClick={() =>
+              open({
+                type: 'info',
+                title: 'Verify your account',
+                body: 'Selfie verification completes Level 2. This demo keeps identity checks as sample data, so nothing is uploaded.',
+              })
+            }
+          >
+            Verify
+          </button>
         </div>
-        <button
-          type="button"
-          className="btn btn-soft btn-sm"
-          onClick={() =>
-            open({
-              type: 'info',
-              title: 'Verify your account',
-              body: 'Selfie verification completes Level 2. This demo keeps identity checks as sample data, so nothing is uploaded.',
-            })
-          }
-        >
-          Verify
-        </button>
-      </div>
+      )}
 
       <div className="grid-2">
         <div className="panel">
@@ -2719,17 +2746,53 @@ function NewOverview({
               <h2>Recent activity</h2>
               <p>Your money movements will appear here</p>
             </div>
+            {s.txns.length > 0 && (
+              <button type="button" className="panel-link" onClick={() => go('activity')}>
+                View all <ChevronRight size={12} />
+              </button>
+            )}
           </div>
-          <div className="empty-card">
-            <span className="empty-icon">
-              <Clock size={20} />
-            </span>
-            <b>No activity yet</b>
-            <p>Deposits, transfers and trades will appear here once you start moving money.</p>
-            <button type="button" className="btn btn-soft btn-sm" onClick={() => open({ type: 'money', mode: 'add' })}>
-              <Plus size={14} /> Add money
-            </button>
-          </div>
+          {s.txns.length > 0 ? (
+            <table className="table">
+              <tbody>
+                {s.txns.slice(0, 5).map((t) => (
+                  <tr key={t.id} {...rowProps(() => open({ type: 'receipt', txn: t }))}>
+                    <td>
+                      <div className="cell-main">
+                        <span className="asset-mark" style={{ background: txnTint(t.type), color: '#21304f' }}>
+                          {txnIcon(t.type)}
+                        </span>
+                        <div>
+                          <b>{t.title}</b>
+                          <span>
+                            {shortDate(t.date)} · {t.ref}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ width: 110 }}>
+                      <StatusPill status={t.status} />
+                    </td>
+                    <td className={`num ${amountTone(t)}`}>
+                      {t.amountKobo >= 0 ? '+' : '−'}
+                      {formatNgn(abs(t.amountKobo))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="empty-card">
+              <span className="empty-icon">
+                <Clock size={20} />
+              </span>
+              <b>No activity yet</b>
+              <p>Deposits, transfers and trades will appear here once you start moving money.</p>
+              <button type="button" className="btn btn-soft btn-sm" onClick={() => open({ type: 'money', mode: 'add' })}>
+                <Plus size={14} /> Add money
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2878,13 +2941,19 @@ function Workspace({ onSignOut }: { onSignOut: () => void }) {
 }
 
 function Root() {
-  const [stage, setStage] = useState<Stage>('welcome');
+  const [stage, setStage] = useState<Stage>(() => (hasStoredSession() ? 'app' : 'welcome'));
   const [splash, setSplash] = useState(true);
+  const store = useStore();
+
+  const signOut = () => {
+    setStage('welcome');
+    void store.signOutAccount();
+  };
 
   return (
     <>
       {stage === 'app' ? (
-        <Workspace onSignOut={() => setStage('welcome')} />
+        <Workspace onSignOut={signOut} />
       ) : (
         <AuthFlow stage={stage} setStage={setStage} onDone={() => setStage('app')} />
       )}

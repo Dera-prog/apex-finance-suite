@@ -110,6 +110,8 @@ export async function readLedgerState(owner = LEDGER_OWNER): Promise<MobileState
     const row = profile.rows[0];
     if (!row) return null;
 
+    const isNewAccount = row.account_kind === 'new';
+
     const balanceOf = (code: string) => {
       const found = balances.rows.find((item) => item.code === code);
       return roundMinor(Number(found?.balance_minor ?? 0));
@@ -164,8 +166,19 @@ export async function readLedgerState(owner = LEDGER_OWNER): Promise<MobileState
         }),
       ),
       holdings,
-      notifications: notifications.map((notification) => ({ ...notification })),
-      banks: banks.map((bank) => ({ ...bank })),
+      notifications: isNewAccount
+        ? [
+            {
+              id: 'nt-welcome',
+              title: 'Welcome to Apex',
+              body: 'Add money to activate your wallet and start saving or investing.',
+              time: new Date().toISOString(),
+              kind: 'kyc',
+              unread: true,
+            },
+          ]
+        : notifications.map((notification) => ({ ...notification })),
+      banks: isNewAccount ? [] : banks.map((bank) => ({ ...bank })),
     } as MobileStateResponse;
   } catch (error) {
     console.error('ledger read failed', error);

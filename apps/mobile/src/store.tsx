@@ -3,7 +3,15 @@ import type { ReactNode } from 'react';
 import { stocks } from '@shared/data';
 import type { PlanKind, Stock } from '@shared/data';
 import { API } from '@shared/api';
-import { depositToLedger, fundPlanInLedger, tradeInLedger } from '@shared/client';
+import {
+  depositToLedger,
+  fundPlanInLedger,
+  requestSignInCode as requestSignInCodeApi,
+  signOutLedger,
+  syncLedgerState,
+  tradeInLedger,
+  verifySignInCode as verifySignInCodeApi,
+} from '@shared/client';
 import type { MobileStateResponse, PlanDto, Profile, TxnDto } from '@shared/api';
 import { demoMobileState } from '@shared/demo-state';
 import { add, formatNgn, formatUsd, neg, pctOf, roundMinor, sub, sum, times, toMinor } from '@shared/money';
@@ -25,6 +33,22 @@ type Prefs = {
 export type MobileState = MobileStateResponse & { prefs: Prefs };
 
 const STORAGE_KEY = 'apex.mobile.v2';
+const SESSION_KEY = 'apex.session.v1';
+
+type Session = { token: string };
+
+function loadSession(): Session | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Session>;
+    return typeof parsed.token === 'string' && parsed.token.length > 0 ? { token: parsed.token } : null;
+  } catch {
+    return null;
+  }
+}
+
+export const hasStoredSession = () => loadSession() !== null;
 
 const MIN_DEPOSIT = toMinor(100);
 const MIN_TRANSFER = toMinor(50);
@@ -134,6 +158,15 @@ function load(): { state: MobileState; stored: boolean } {
 
 export type MoneyResult = { ok: boolean; error?: string; txn?: TxnDto };
 export type PlanResult = MoneyResult & { plan?: PlanDto };
+export type SignInResult = { ok: boolean; error?: string; challengeId?: string; devCode?: string; offline?: boolean };
+export type VerifySignInInput = {
+  challengeId?: string;
+  code: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  mode: 'signup' | 'signin';
+};
 
 type Store = MobileState & {
   total: Minor;
@@ -154,6 +187,9 @@ type Store = MobileState & {
   reset: () => void;
   startFresh: (input: { name: string; email: string; phone: string }) => void;
   signInDemo: () => void;
+  requestSignInCode: (phone: string) => Promise<SignInResult>;
+  verifySignInCode: (input: VerifySignInInput) => Promise<{ ok: boolean; error?: string }>;
+  signOutAccount: () => Promise<void>;
   user: Profile;
 };
 
@@ -175,9 +211,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<MobileState>(boot.state);
   const [toast, setToast] = useState<string | null>(null);
   const timer = useRef<number | null>(null);
+  const sessionRef = useRef<Session | null>(loadSession());
+
+  const setSession = useCallback((session: Session | null) => {
+    sessionRef.current = session;
+    try {
+      if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      else localStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* storage is optional */
+    }
+  }, []);
 
   useEffect(() => {
-    if (boot.stored) return;
+    if (boot.stored || sessionRef.current) return;
     let alive = true;
     void fetchRemoteState().then((remote) => {
       if (alive && remote) setState((current) => ({ ...remote, prefs: current.prefs }));
@@ -186,6 +233,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       alive = false;
     };
   }, [boot.stored]);
+
+  useEffect(() => {
+    const token = sessionRef.current?.token;
+    if (!token) return;
+    let alive = true;
+    void syncLedgerState(API_BASE, token).then((outcome) => {
+      if (!alive) return;
+      if (outcome.status === 'ok') setState((current) => ({ ...outcome.state, prefs: current.prefs }));
+      else if (outcome.status === 'unauthorized') setSession(null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [setSession]);
 
   useEffect(() => {
     try {
@@ -227,8 +288,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const ref = makeRef('DEP');
       let recorded: TxnDto | undefined;
 
-      if (state.account === 'seed') {
-        const outcome = await depositToLedger(API_BASE, { amountMinor: amount, source: source.trim(), reference: ref });
+      if (sessionRef.current?.token || state.account === 'seed') {
+        const outcome = await depositToLedger(
+          API_BASE,
+          { amountMinor: amount, source: source.trim(), reference: ref },
+          sessionRef.current?.token,
+        );
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') recorded = outcome.state.txns.find((t) => t.ref === ref);
       }
@@ -356,8 +421,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const ref = makeRef('SAV');
       let recorded: TxnDto | undefined;
 
-      if (state.account === 'seed') {
-        const outcome = await fundPlanInLedger(API_BASE, id, { amountMinor: amount, reference: ref });
+      if (sessionRef.current?.token || state.account === 'seed') {
+        const outcome = await fundPlanInLedger(
+          API_BASE,
+          id,
+          { amountMinor: amount, reference: ref },
+          sessionRef.current?.token,
+        );
         if (outcome.status === 'rejected' && outcome.code !== 'unknown_plan') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') recorded = outcome.state.txns.find((t) => t.ref === ref);
       }
@@ -445,8 +515,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const ref = makeRef('INV');
       let recorded: TxnDto | undefined;
 
-      if (state.account === 'seed') {
-        const outcome = await tradeInLedger(API_BASE, { symbol, units, side, reference: ref });
+      if (sessionRef.current?.token || state.account === 'seed') {
+        const outcome = await tradeInLedger(
+          API_BASE,
+          { symbol, units, side, reference: ref },
+          sessionRef.current?.token,
+        );
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') recorded = outcome.state.txns.find((t) => t.ref === ref);
       }
@@ -564,6 +638,53 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, [notify]);
 
+  const requestSignInCode = useCallback<Store['requestSignInCode']>(async (phone) => {
+    const outcome = await requestSignInCodeApi(API_BASE, { phone });
+    if (outcome.status === 'offline') return { ok: true, offline: true };
+    if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
+    return { ok: true, challengeId: outcome.challengeId, devCode: outcome.devCode };
+  }, []);
+
+  const verifySignInCode = useCallback<Store['verifySignInCode']>(
+    async (input) => {
+      if (input.challengeId) {
+        const outcome = await verifySignInCodeApi(API_BASE, {
+          challengeId: input.challengeId,
+          code: input.code,
+          name: input.name,
+          email: input.email,
+        });
+        if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
+        if (outcome.status === 'ok') {
+          setSession({ token: outcome.auth.token });
+          setState((s) => ({ ...outcome.auth.state, prefs: s.prefs }));
+          notify(
+            input.mode === 'signup'
+              ? `Welcome to Apex${input.name ? `, ${input.name.trim().split(/\s+/)[0]}` : ''}`
+              : 'Welcome back',
+          );
+          return { ok: true };
+        }
+      }
+
+      // No ledger reachable (or no challenge): keep the demo usable on this device.
+      if (input.mode === 'signup') {
+        startFresh({ name: input.name ?? '', email: input.email ?? '', phone: input.phone ?? '' });
+      } else {
+        signInDemo();
+      }
+      return { ok: true };
+    },
+    [notify, setSession, startFresh, signInDemo],
+  );
+
+  const signOutAccount = useCallback<Store['signOutAccount']>(async () => {
+    const token = sessionRef.current?.token;
+    setSession(null);
+    setState((s) => ({ ...seed(), prefs: { ...seedPrefs(), darkMode: s.prefs.darkMode } }));
+    if (token) await signOutLedger(API_BASE, token);
+  }, [setSession]);
+
   const savings = useMemo(() => sum(state.plans.map((p) => p.balanceKobo)), [state.plans]);
   const investNgn = useMemo(
     () => sum(state.holdings.filter((h) => h.currency === 'NGN').map((h) => times(h.units, h.priceMinor))),
@@ -596,8 +717,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reset,
       startFresh,
       signInDemo,
+      requestSignInCode,
+      verifySignInCode,
+      signOutAccount,
     }),
-    [state, savings, investNgn, investUsd, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, setPref, reset, startFresh, signInDemo],
+    [state, savings, investNgn, investUsd, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, setPref, reset, startFresh, signInDemo, requestSignInCode, verifySignInCode, signOutAccount],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

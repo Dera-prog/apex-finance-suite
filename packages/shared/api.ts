@@ -6,6 +6,9 @@ export const API = {
   demoState: '/api/state',
   deposit: '/api/deposit',
   trade: '/api/trade',
+  requestCode: '/api/auth/request-code',
+  verifyCode: '/api/auth/verify-code',
+  logout: '/api/auth/logout',
 } as const;
 
 export const planFundPath = (planId: string) => `/api/plans/${encodeURIComponent(planId)}/fund`;
@@ -69,3 +72,25 @@ export type ErrorResponse = { error: string; message?: string };
 export type DepositRequest = { amountMinor: number; source?: string; reference?: string };
 export type TradeRequest = { symbol: string; units: number; side: 'buy' | 'sell'; reference?: string };
 export type PlanFundRequest = { amountMinor: number; reference?: string };
+
+export type RequestCodeRequest = { phone: string };
+export type RequestCodeResponse = {
+  challengeId: string;
+  expiresAt: string;
+  /** Present until an SMS provider is wired, so the demo can finish signing in. */
+  devCode?: string;
+};
+
+export type VerifyCodeRequest = {
+  challengeId: string;
+  code: string;
+  name?: string;
+  email?: string;
+};
+
+export type AuthResponse = {
+  token: string;
+  expiresAt: string;
+  owner: string;
+  state: MobileStateResponse;
+};

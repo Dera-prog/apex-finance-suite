@@ -5,9 +5,13 @@ import type {
   HealthResponse,
   MobileStateResponse,
   PlanFundRequest,
+  RequestCodeRequest,
   TradeRequest,
+  VerifyCodeRequest,
 } from '../../../packages/shared/api.js';
 import { demoMobileState } from '../../../packages/shared/demo-state.js';
+import { AuthError, ownerForToken, requestCode, signOut, verifyCode } from './auth.js';
+import { LEDGER_OWNER } from './env.js';
 import { ledgerConnected, readLedgerState } from './ledger.js';
 import { deposit, fundPlan, LedgerError, trade } from './writes.js';
 import { sendJson } from './respond.js';
@@ -38,8 +42,26 @@ async function health(_req: IncomingMessage, res: ServerResponse) {
   sendJson(res, 200, body);
 }
 
-async function state(_req: IncomingMessage, res: ServerResponse) {
-  const fromLedger = await readLedgerState();
+const bearer = (req: IncomingMessage): string | null => {
+  const header = req.headers.authorization;
+  if (!header) return null;
+  const match = /^Bearer\s+(\S+)$/i.exec(header);
+  if (!match?.[1]) throw new HttpError(401, 'unauthorized', 'Send the token from sign-in as a bearer token.');
+  return match[1];
+};
+
+/** The signed-in owner, or null for the public demo when no token was sent. */
+async function ownerFrom(req: IncomingMessage): Promise<string | null> {
+  const token = bearer(req);
+  if (!token) return null;
+  const owner = await ownerForToken(token);
+  if (!owner) throw new HttpError(401, 'session_expired', 'That sign-in has expired. Sign in again.');
+  return owner;
+}
+
+async function state(req: IncomingMessage, res: ServerResponse) {
+  const owner = await ownerFrom(req);
+  const fromLedger = await readLedgerState(owner ?? undefined);
   sendJson(res, 200, fromLedger ?? demoMobileState());
 }
 
@@ -64,30 +86,50 @@ async function readBody(req: IncomingMessage) {
 }
 
 /** A write answers with the whole state so the caller never has to reassemble it. */
-async function respondWithState(res: ServerResponse) {
-  const next: MobileStateResponse | null = await readLedgerState();
+async function respondWithState(res: ServerResponse, owner = LEDGER_OWNER) {
+  const next: MobileStateResponse | null = await readLedgerState(owner);
   if (!next) throw new LedgerError('ledger_unavailable', 503, 'The ledger database is not configured.');
   sendJson(res, 200, next);
 }
 
 async function depositHandler(req: IncomingMessage, res: ServerResponse) {
   const body = await readBody(req);
-  await deposit(body as unknown as DepositRequest);
-  await respondWithState(res);
+  const owner = (await ownerFrom(req)) ?? LEDGER_OWNER;
+  await deposit(body as unknown as DepositRequest, owner);
+  await respondWithState(res, owner);
 }
 
 async function tradeHandler(req: IncomingMessage, res: ServerResponse) {
   const body = await readBody(req);
-  await trade(body as unknown as TradeRequest);
-  await respondWithState(res);
+  const owner = (await ownerFrom(req)) ?? LEDGER_OWNER;
+  await trade(body as unknown as TradeRequest, owner);
+  await respondWithState(res, owner);
 }
 
 function fundPlanHandler(planId: string): Handler {
   return async (req, res) => {
     const body = await readBody(req);
-    await fundPlan(planId, body as unknown as PlanFundRequest);
-    await respondWithState(res);
+    const owner = (await ownerFrom(req)) ?? LEDGER_OWNER;
+    await fundPlan(planId, body as unknown as PlanFundRequest, owner);
+    await respondWithState(res, owner);
   };
+}
+
+async function requestCodeHandler(req: IncomingMessage, res: ServerResponse) {
+  const body = await readBody(req);
+  sendJson(res, 200, await requestCode(body as unknown as RequestCodeRequest));
+}
+
+async function verifyCodeHandler(req: IncomingMessage, res: ServerResponse) {
+  const body = await readBody(req);
+  sendJson(res, 200, await verifyCode(body as unknown as VerifyCodeRequest));
+}
+
+async function logoutHandler(req: IncomingMessage, res: ServerResponse) {
+  const token = bearer(req);
+  if (token) await signOut(token);
+  res.writeHead(204);
+  res.end();
 }
 
 const routes = new Map<string, Partial<Record<Method, Handler>>>([
@@ -95,6 +137,9 @@ const routes = new Map<string, Partial<Record<Method, Handler>>>([
   [API.demoState, { GET: state }],
   [API.deposit, { POST: depositHandler }],
   [API.trade, { POST: tradeHandler }],
+  [API.requestCode, { POST: requestCodeHandler }],
+  [API.verifyCode, { POST: verifyCodeHandler }],
+  [API.logout, { POST: logoutHandler }],
 ]);
 
 const planFundRoute = /^\/api\/plans\/([^/]+)\/fund$/;
@@ -151,7 +196,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   try {
     await handler(req, res);
   } catch (error) {
-    if (error instanceof LedgerError || error instanceof HttpError) {
+    if (error instanceof LedgerError || error instanceof HttpError || error instanceof AuthError) {
       sendJson(res, error.status, { error: error.code, message: error.message });
       return;
     }
