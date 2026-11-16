@@ -20,7 +20,8 @@ apps/case-study   design case study
 apps/website      marketing site
 apps/desktop      desktop web app
 apps/mobile       mobile PWA
-packages/shared   shared design tokens, components and links
+apps/api          API + double-entry ledger (Postgres)
+packages/shared   shared design tokens, components, money helpers and API types
 ```
 
 ## Run locally
@@ -33,6 +34,21 @@ npm run dev:case      # case study
 npm run dev:site      # marketing site
 npm run dev:desktop   # desktop app
 npm run dev:mobile    # mobile app
+npm run dev:api       # API on :4000 (serves the ledger, falls back to demo state without a database)
+```
+
+The two apps proxy `/api` to `http://127.0.0.1:4000` in development and to the deployed API in production, and fall back to an identical local demo state when the API is unreachable.
+
+## Ledger
+
+Balances are derived from postings, never stored. Every write goes through `post_entry`, which rejects an entry whose postings do not net to zero in each currency, and postings are append-only.
+
+```bash
+npm run -w @apex/api db:init      # create the local cluster in apps/api/.pgdata (first run)
+npm run -w @apex/api db:up        # start Postgres on :5433
+npm run -w @apex/api db:migrate   # apply migrations/*.sql
+npm run -w @apex/api db:seed      # post the demo account from packages/shared
+npm run -w @apex/api test         # ledger invariants against the running database
 ```
 
 ## Build
