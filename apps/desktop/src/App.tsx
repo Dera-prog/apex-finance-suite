@@ -40,13 +40,16 @@ import {
 import { Avatar, Donut, Logo, Sparkline } from '@shared/ui';
 import {
   marketMovers,
-  ngn,
+  ngn as quoteNgn,
   relativeTime,
   shortDate,
   stocks,
-  usd,
+  usd as quoteUsd,
 } from '@shared/data';
-import type { Bank, Plan, PlanKind, Stock, Txn } from '@shared/data';
+import type { Bank, PlanKind, Stock, Txn } from '@shared/data';
+import type { PlanDto, TxnDto } from '@shared/api';
+import { abs, add, formatNgn, formatUsd, parseNgn, pctOf, sub, sum, times, toMinor } from '@shared/money';
+import type { Minor } from '@shared/money';
 import { StoreProvider, useStore } from './store';
 import './styles.css';
 
@@ -57,7 +60,7 @@ type ModalState =
   | { type: 'new-plan' }
   | { type: 'plan'; planId: string; mode: 'deposit' | 'withdraw' }
   | { type: 'trade'; symbol: string; side: 'buy' | 'sell' }
-  | { type: 'receipt'; txn: Txn }
+  | { type: 'receipt'; txn: TxnDto }
   | { type: 'info'; title: string; body: string }
   | { type: 'reset' }
   | null;
@@ -84,7 +87,7 @@ const nav: { id: Page; label: string; icon: ReactNode }[] = [
 const planIcon = (icon: string) =>
   icon === 'lock' ? <Lock size={12} /> : icon === 'target' ? <Target size={12} /> : <Zap size={12} />;
 
-const price = (s: Stock) => (s.currency === 'USD' ? usd(s.price) : ngn(s.price, 2));
+const price = (s: Stock) => (s.currency === 'USD' ? quoteUsd(s.price) : quoteNgn(s.price, 2));
 
 const txnIcon = (type: Txn['type']) => {
   const map: Record<Txn['type'], ReactNode> = {
@@ -118,7 +121,8 @@ function StatusPill({ status }: { status: Txn['status'] }) {
   );
 }
 
-const amountTone = (t: Txn) => (t.status === 'Failed' ? 'amount-void' : t.amount >= 0 ? 'amount-in' : 'amount-out');
+const amountTone = (t: TxnDto) =>
+  t.status === 'Failed' ? 'amount-void' : t.amountKobo >= 0 ? 'amount-in' : 'amount-out';
 
 const rowProps = (onClick: () => void) => ({
   className: 'clickable',
@@ -265,7 +269,7 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
   const [tag, setTag] = useState('@chinedu');
   const [error, setError] = useState<string | null>(null);
 
-  const value = Number(amount || 0);
+  const value = parseNgn(amount) ?? toMinor(0);
   const bank = store.banks.find((b) => b.id === bankId) ?? store.banks[0];
 
   const copy = {
@@ -337,11 +341,13 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
           </div>
           <div className="preview-row">
             <span>Wallet balance after</span>
-            <b>{ngn(mode === 'add' ? store.walletNgn + value : store.walletNgn - value)}</b>
+            <b>
+              {formatNgn(mode === 'add' ? add(store.walletNgnKobo, value) : sub(store.walletNgnKobo, value))}
+            </b>
           </div>
           <div className="preview-row total">
             <span>{mode === 'add' ? 'You add' : mode === 'withdraw' ? 'You receive' : 'You send'}</span>
-            <b>{ngn(value)}</b>
+            <b>{formatNgn(value)}</b>
           </div>
         </div>
         <ErrorLine message={error} />
@@ -376,9 +382,9 @@ function NewPlanModal({ onClose }: { onClose: () => void }) {
     const result = store.createPlan({
       name: name.trim(),
       kind,
-      initial: Number(initial || 0),
-      target: kind === 'target' ? Number(target || 0) : undefined,
-      monthly: kind === 'target' ? Number(monthly || 0) : undefined,
+      initial: parseNgn(initial) ?? toMinor(0),
+      target: kind === 'target' ? (parseNgn(target) ?? toMinor(0)) : undefined,
+      monthly: kind === 'target' ? (parseNgn(monthly) ?? toMinor(0)) : undefined,
     });
     if (!result.ok) {
       setError(result.error ?? 'Could not open the plan.');
@@ -474,7 +480,7 @@ function NewPlanModal({ onClose }: { onClose: () => void }) {
           </div>
           <div className="preview-row">
             <span>Wallet after opening</span>
-            <b>{ngn(store.walletNgn - Number(initial || 0))}</b>
+            <b>{formatNgn(sub(store.walletNgnKobo, parseNgn(initial) ?? toMinor(0)))}</b>
           </div>
         </div>
         <ErrorLine message={error} />
@@ -494,14 +500,14 @@ function PlanMoneyModal({
   mode,
   onClose,
 }: {
-  plan: Plan;
+  plan: PlanDto;
   mode: 'deposit' | 'withdraw';
   onClose: () => void;
 }) {
   const store = useStore();
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const value = Number(amount || 0);
+  const value = parseNgn(amount) ?? toMinor(0);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -529,7 +535,7 @@ function PlanMoneyModal({
     >
       <div className="summary-tile">
         <span>Plan balance</span>
-        <b>{ngn(plan.balance)}</b>
+        <b>{formatNgn(plan.balanceKobo)}</b>
         <small>
           {plan.rate}% p.a. · {plan.kind === 'fixed' ? 'fixed' : plan.kind === 'target' ? 'target' : 'flexible'}
         </small>
@@ -540,11 +546,15 @@ function PlanMoneyModal({
         <div className="preview">
           <div className="preview-row">
             <span>Wallet available</span>
-            <b>{ngn(store.walletNgn)}</b>
+            <b>{formatNgn(store.walletNgnKobo)}</b>
           </div>
           <div className="preview-row total">
             <span>{mode === 'deposit' ? 'Plan after' : 'Wallet after'}</span>
-            <b>{ngn(mode === 'deposit' ? plan.balance + value : store.walletNgn + value)}</b>
+            <b>
+              {formatNgn(
+                mode === 'deposit' ? add(plan.balanceKobo, value) : add(store.walletNgnKobo, value),
+              )}
+            </b>
           </div>
         </div>
         <ErrorLine message={error} />
@@ -579,12 +589,11 @@ function TradeModal({
   const [error, setError] = useState<string | null>(null);
   const holding = store.holdings.find((h) => h.symbol === symbol);
   const unitCount = Number(units || 0);
-  const gross = unitCount * stock.price;
-  const fee = gross * 0.015;
-  const total = gross + fee;
+  const gross = toMinor(unitCount * stock.price);
+  const fee = pctOf(gross, 1.5);
+  const total = add(gross, fee);
   const cur = stock.currency === 'USD' ? '$' : '₦';
-  const fmt = (v: number) =>
-    stock.currency === 'USD' ? usd(v) : ngn(v, 2);
+  const fmt = (v: Minor) => (stock.currency === 'USD' ? formatUsd(v) : formatNgn(v, 2));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -646,13 +655,13 @@ function TradeModal({
             <span>{side === 'buy' ? `Available ${cur === '₦' ? 'naira' : 'USD'} wallet` : 'You hold'}</span>
             <b>
               {side === 'buy'
-                ? fmt(stock.currency === 'USD' ? store.walletUsd : store.walletNgn)
+                ? fmt(stock.currency === 'USD' ? store.walletUsdCents : store.walletNgnKobo)
                 : `${holding?.units ?? 0} units`}
             </b>
           </div>
           <div className="preview-row total">
             <span>{side === 'buy' ? 'Estimated total' : 'Estimated proceeds'}</span>
-            <b>{fmt(side === 'buy' ? total : gross - fee)}</b>
+            <b>{fmt(side === 'buy' ? total : sub(gross, fee))}</b>
           </div>
         </div>
         <ErrorLine message={error} />
@@ -670,9 +679,9 @@ function TradeModal({
 
 /* ---------------- receipt ---------------- */
 
-function ReceiptModal({ txn, onClose }: { txn: Txn; onClose: () => void }) {
+function ReceiptModal({ txn, onClose }: { txn: TxnDto; onClose: () => void }) {
   const store = useStore();
-  const positive = txn.amount >= 0 && txn.status !== 'Failed';
+  const positive = txn.amountKobo >= 0 && txn.status !== 'Failed';
   return (
     <ModalShell title="Transaction receipt" sub="Keep this reference for support." onClose={onClose}>
       <div className="receipt">
@@ -680,7 +689,7 @@ function ReceiptModal({ txn, onClose }: { txn: Txn; onClose: () => void }) {
           <Avatar initials="AO" size={40} ring tint="#FFDCCE" />
           <b style={{ color: positive ? 'var(--green-700)' : txn.status === 'Failed' ? 'var(--ink-500)' : 'var(--ink-900)' }}>
             {txn.status === 'Failed' ? '' : positive ? '+' : '−'}
-            {ngn(Math.abs(txn.amount))}
+            {formatNgn(abs(txn.amountKobo), 2)}
           </b>
           <span>{txn.title}</span>
         </div>
@@ -740,11 +749,11 @@ function Overview({
   go: (p: Page) => void;
 }) {
   const s = useStore();
-  const ngxGain = s.holdings.reduce((sum, h) => {
-    const stock = stocks.find((x) => x.symbol === h.symbol);
-    if (!stock || stock.currency !== 'NGN') return sum;
-    return sum + (stock.price - h.avgCost) * h.units;
-  }, 0);
+  const ngxGain = sum(
+    s.holdings
+      .filter((h) => h.currency === 'NGN')
+      .map((h) => times(h.units, sub(h.priceMinor, h.avgCostMinor))),
+  );
   const chart = [22, 26, 24, 30, 28, 34, 33, 39, 36, 44, 42, 48, 50, 56, 54, 61, 60, 68];
   const line = chart
     .map((v, i) => `${i === 0 ? 'M' : 'L'}${(i / (chart.length - 1)) * 340} ${104 - (v / 72) * 96}`)
@@ -757,23 +766,23 @@ function Overview({
           <span className="ov-hero-label">
             <Sparkles size={13} /> Total balance · demo account
           </span>
-          <h2>{ngn(s.total)}</h2>
+          <h2>{formatNgn(s.total)}</h2>
           <div className="ov-hero-sub">
             <div>
               <span>Wallet</span>
-              <b>{ngn(s.walletNgn)}</b>
+              <b>{formatNgn(s.walletNgnKobo)}</b>
             </div>
             <div>
               <span>Savings</span>
-              <b>{ngn(s.savings)}</b>
+              <b>{formatNgn(s.savings)}</b>
             </div>
             <div>
               <span>Investments</span>
-              <b>{ngn(s.investmentsNgn)}</b>
+              <b>{formatNgn(s.investNgn)}</b>
             </div>
             <div>
               <span>US portfolio · USD</span>
-              <b>{usd(s.investmentsUsd)}</b>
+              <b>{formatUsd(s.investUsd)}</b>
             </div>
           </div>
           <div className="ov-hero-actions">
@@ -815,9 +824,9 @@ function Overview({
               <Wallet size={15} />
             </i>
           </div>
-          <b>{ngn(s.walletNgn)}</b>
+          <b>{formatNgn(s.walletNgnKobo)}</b>
           <small>
-            {usd(s.walletUsd)} USD wallet · <em>ready to use</em>
+            {formatUsd(s.walletUsdCents)} USD wallet · <em>ready to use</em>
           </small>
         </div>
         <div className="kpi">
@@ -827,7 +836,7 @@ function Overview({
               <Target size={15} />
             </i>
           </div>
-          <b>{ngn(s.savings)}</b>
+          <b>{formatNgn(s.savings)}</b>
           <small>{s.plans.length} active plans · {s.plans.filter((p) => p.kind === 'fixed').length} fixed</small>
         </div>
         <div className="kpi">
@@ -837,9 +846,9 @@ function Overview({
               <LineChart size={15} />
             </i>
           </div>
-          <b>{ngn(s.investmentsNgn)}</b>
+          <b>{formatNgn(s.investNgn)}</b>
           <small>
-            Total return <em>{ngxGain >= 0 ? '+' : '−'}{ngn(Math.abs(ngxGain))}</em>
+            Total return <em>{ngxGain >= 0 ? '+' : '−'}{formatNgn(abs(ngxGain))}</em>
           </small>
         </div>
         <div className="kpi">
@@ -849,7 +858,7 @@ function Overview({
               <TrendingUp size={15} />
             </i>
           </div>
-          <b>{usd(s.investmentsUsd)}</b>
+          <b>{formatUsd(s.investUsd)}</b>
           <small>{s.holdings.filter((h) => ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN'].includes(h.symbol)).length} US holdings</small>
         </div>
       </div>
@@ -896,7 +905,9 @@ function Overview({
                     <td className="num">{h.units}</td>
                     <td className="num">{price(stock)}</td>
                     <td className="num">
-                      {stock.currency === 'USD' ? usd(h.units * stock.price) : ngn(h.units * stock.price, 2)}
+                      {h.currency === 'USD'
+                        ? formatUsd(times(h.units, h.priceMinor))
+                        : formatNgn(times(h.units, h.priceMinor), 2)}
                     </td>
                     <td className={`num ${h.change >= 0 ? 'trend-up' : 'trend-down'}`}>
                       {h.change >= 0 ? '+' : ''}
@@ -920,7 +931,7 @@ function Overview({
             </button>
           </div>
           {s.plans.slice(0, 4).map((p) => {
-            const progress = p.target ? Math.round((p.balance / p.target) * 100) : 100;
+            const progress = p.targetKobo ? Math.round((p.balanceKobo / p.targetKobo) * 100) : 100;
             return (
               <div className="goal-row" key={p.id}>
                 <div className="goal-top">
@@ -932,8 +943,14 @@ function Overview({
                   <i style={{ width: `${Math.min(100, progress)}%`, background: p.color }} />
                 </div>
                 <div className="goal-meta">
-                  <span>{ngn(p.balance)}</span>
-                  <span>{p.target ? `${progress}% of ${ngn(p.target)}` : p.kind === 'fixed' ? 'Locked to maturity' : 'Flexible'}</span>
+                  <span>{formatNgn(p.balanceKobo)}</span>
+                  <span>
+                    {p.targetKobo
+                      ? `${progress}% of ${formatNgn(p.targetKobo)}`
+                      : p.kind === 'fixed'
+                        ? 'Locked to maturity'
+                        : 'Flexible'}
+                  </span>
                 </div>
               </div>
             );
@@ -979,8 +996,8 @@ function Overview({
                     <StatusPill status={t.status} />
                   </td>
                   <td className={`num ${amountTone(t)}`}>
-                    {t.amount >= 0 ? '+' : '−'}
-                    {ngn(Math.abs(t.amount))}
+                    {t.amountKobo >= 0 ? '+' : '−'}
+                    {formatNgn(abs(t.amountKobo))}
                   </td>
                 </tr>
               ))}
@@ -1053,7 +1070,7 @@ function WalletPage({ open }: { open: (m: ModalState) => void }) {
             <span className="ov-hero-label">
               <Wallet size={13} /> Naira wallet
             </span>
-            <h2 style={{ marginTop: 8, fontSize: 38, letterSpacing: '-0.05em' }}>{ngn(s.walletNgn)}</h2>
+            <h2 style={{ marginTop: 8, fontSize: 38, letterSpacing: '-0.05em' }}>{formatNgn(s.walletNgnKobo)}</h2>
             <p style={{ marginTop: 4, fontSize: 11, color: 'rgba(255,255,255,.55)' }}>
               Available now · demo balance, no real funds
             </p>
@@ -1108,7 +1125,7 @@ function WalletPage({ open }: { open: (m: ModalState) => void }) {
               <span className="pill pill-blue">USD</span>
             </div>
             <b style={{ fontFamily: 'var(--font-display)', fontSize: 27, letterSpacing: '-0.045em' }}>
-              {usd(s.walletUsd)}
+              {formatUsd(s.walletUsdCents)}
             </b>
             <p style={{ fontSize: 10, color: 'var(--ink-500)', marginTop: 4, fontWeight: 600 }}>
               Demo FX rate ₦1,600 / $1. Conversion is quoted before any order.
@@ -1182,9 +1199,9 @@ function WalletPage({ open }: { open: (m: ModalState) => void }) {
                   <StatusPill status={t.status} />
                 </td>
                 <td style={{ color: 'var(--ink-500)', fontSize: 10.5 }}>{shortDate(t.date)}</td>
-                <td className={`num ${t.amount >= 0 ? 'amount-in' : 'amount-out'}`}>
-                  {t.amount >= 0 ? '+' : '−'}
-                  {ngn(Math.abs(t.amount))}
+                <td className={`num ${t.amountKobo >= 0 ? 'amount-in' : 'amount-out'}`}>
+                  {t.amountKobo >= 0 ? '+' : '−'}
+                  {formatNgn(abs(t.amountKobo))}
                 </td>
               </tr>
             ))}
@@ -1201,7 +1218,7 @@ function SavingsPage({ open }: { open: (m: ModalState) => void }) {
   const s = useStore();
   const [tab, setTab] = useState<'all' | PlanKind>('all');
   const filtered = tab === 'all' ? s.plans : s.plans.filter((p) => p.kind === tab);
-  const projected = s.plans.reduce((sum, p) => sum + (p.balance * p.rate) / 100, 0);
+  const projected = sum(s.plans.map((p) => pctOf(p.balanceKobo, p.rate)));
 
   return (
     <div className="page page-enter">
@@ -1213,7 +1230,7 @@ function SavingsPage({ open }: { open: (m: ModalState) => void }) {
               <Target size={15} />
             </i>
           </div>
-          <b>{ngn(s.savings)}</b>
+          <b>{formatNgn(s.savings)}</b>
           <small>Across {s.plans.length} plans</small>
         </div>
         <div className="kpi">
@@ -1223,7 +1240,7 @@ function SavingsPage({ open }: { open: (m: ModalState) => void }) {
               <TrendingUp size={15} />
             </i>
           </div>
-          <b>{ngn(projected)}</b>
+          <b>{formatNgn(projected)}</b>
           <small>Annualised, illustrative</small>
         </div>
         <div className="kpi">
@@ -1233,8 +1250,8 @@ function SavingsPage({ open }: { open: (m: ModalState) => void }) {
               <RefreshCw size={15} />
             </i>
           </div>
-          <b>{ngn(s.plans.reduce((sum, p) => sum + (p.monthly ?? 0), 0))}</b>
-          <small>{s.plans.filter((p) => p.monthly).length} target plans</small>
+          <b>{formatNgn(sum(s.plans.map((p) => p.monthlyKobo ?? toMinor(0))))}</b>
+          <small>{s.plans.filter((p) => p.monthlyKobo).length} target plans</small>
         </div>
       </div>
 
@@ -1266,7 +1283,7 @@ function SavingsPage({ open }: { open: (m: ModalState) => void }) {
 
         <div className="plan-grid">
           {filtered.map((p) => {
-            const progress = p.target ? Math.round((p.balance / p.target) * 100) : 100;
+            const progress = p.targetKobo ? Math.round((p.balanceKobo / p.targetKobo) * 100) : 100;
             return (
               <article className="plan-card" key={p.id}>
                 <div className="plan-tint" style={{ background: `linear-gradient(160deg, ${p.pastel}, transparent)` }} />
@@ -1280,13 +1297,17 @@ function SavingsPage({ open }: { open: (m: ModalState) => void }) {
                     </span>
                   </div>
                   <h3>{p.name}</h3>
-                  <div className="plan-balance">{ngn(p.balance)}</div>
+                  <div className="plan-balance">{formatNgn(p.balanceKobo)}</div>
                   <div className="plan-sub">{p.subtitle}</div>
                   <div className="plan-progress">
                     <i style={{ width: `${Math.min(100, progress)}%`, background: p.color }} />
                   </div>
                   <div className="plan-foot">
-                    <span>{p.target ? `${progress}% of ${ngn(p.target)}` : `Opened ${shortDate(p.opened)}`}</span>
+                    <span>
+                      {p.targetKobo
+                        ? `${progress}% of ${formatNgn(p.targetKobo)}`
+                        : `Opened ${shortDate(p.opened)}`}
+                    </span>
                     <span>{p.rate}% p.a.</span>
                   </div>
                   <div className="plan-actions">
@@ -1340,14 +1361,13 @@ function InvestPage({ open }: { open: (m: ModalState) => void }) {
     .map((h) => ({ h, stock: stocks.find((x) => x.symbol === h.symbol)! }))
     .filter((x) => x.stock && x.stock.currency === 'NGN');
   const segs = ngnHoldings.map(({ h, stock }) => ({
-    value: h.units * stock.price,
+    value: times(h.units, h.priceMinor),
     color: stock.tint === '#E9EDF2' ? '#A9CBFF' : stock.tint,
   }));
-  const ngxCost = s.holdings.reduce((sum, h) => {
-    const stock = stocks.find((x) => x.symbol === h.symbol);
-    return stock && stock.currency === 'NGN' ? sum + stock.avgCost * h.units : sum;
-  }, 0);
-  const gainPct = ngxCost ? ((s.investmentsNgn - ngxCost) / ngxCost) * 100 : 0;
+  const ngxCost = sum(
+    s.holdings.filter((h) => h.currency === 'NGN').map((h) => times(h.units, h.avgCostMinor)),
+  );
+  const gainPct = ngxCost ? ((s.investNgn - ngxCost) / ngxCost) * 100 : 0;
 
   return (
     <div className="page page-enter">
@@ -1359,7 +1379,7 @@ function InvestPage({ open }: { open: (m: ModalState) => void }) {
               <LineChart size={15} />
             </i>
           </div>
-          <b>{ngn(s.investmentsNgn)}</b>
+          <b>{formatNgn(s.investNgn)}</b>
           <small>
             <em>{gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%</em> total return (demo)
           </small>
@@ -1371,8 +1391,8 @@ function InvestPage({ open }: { open: (m: ModalState) => void }) {
               <TrendingUp size={15} />
             </i>
           </div>
-          <b>{usd(s.investmentsUsd)}</b>
-          <small>USD wallet {usd(s.walletUsd)}</small>
+          <b>{formatUsd(s.investUsd)}</b>
+          <small>USD wallet {formatUsd(s.walletUsdCents)}</small>
         </div>
         <div className="kpi">
           <div className="kpi-top">
@@ -1497,8 +1517,8 @@ function InvestPage({ open }: { open: (m: ModalState) => void }) {
             )}
             {s.holdings.map((h) => {
               const stock = stocks.find((x) => x.symbol === h.symbol)!;
-              const value = h.units * stock.price;
-              const gain = (stock.price - h.avgCost) / h.avgCost * 100;
+              const value = times(h.units, h.priceMinor);
+              const gain = ((h.priceMinor - h.avgCostMinor) / h.avgCostMinor) * 100;
               return (
                 <button
                   type="button"
@@ -1514,11 +1534,12 @@ function InvestPage({ open }: { open: (m: ModalState) => void }) {
                     <div>
                       <b>{stock.name}</b>
                       <span>
-                        {h.units} units · avg {stock.currency === 'USD' ? usd(h.avgCost) : ngn(h.avgCost, 2)}
+                        {h.units} units · avg{' '}
+                        {h.currency === 'USD' ? formatUsd(h.avgCostMinor) : formatNgn(h.avgCostMinor, 2)}
                       </span>
                     </div>
                     <div className="val">
-                      {stock.currency === 'USD' ? usd(value) : ngn(value, 2)}
+                      {h.currency === 'USD' ? formatUsd(value) : formatNgn(value, 2)}
                       <em className={gain >= 0 ? 'trend-up' : 'trend-down'}>
                         {gain >= 0 ? '+' : ''}
                         {gain.toFixed(1)}%
@@ -1528,7 +1549,7 @@ function InvestPage({ open }: { open: (m: ModalState) => void }) {
                   <div className="alloc">
                     <i
                       style={{
-                        width: `${Math.min(100, (value / Math.max(1, stock.currency === 'USD' ? s.investmentsUsd : s.investmentsNgn)) * 100)}%`,
+                        width: `${Math.min(100, (value / Math.max(1, h.currency === 'USD' ? s.investUsd : s.investNgn)) * 100)}%`,
                         background: stock.change >= 0 ? 'var(--green-500)' : 'var(--red-600)',
                       }}
                     />
@@ -1577,8 +1598,8 @@ function ActivityPage({
 
   const rows = s.txns.filter((t) => {
     if (t.status === 'Failed' && (filter === 'Money in' || filter === 'Money out')) return false;
-    if (filter === 'Money in' && t.amount < 0) return false;
-    if (filter === 'Money out' && t.amount >= 0) return false;
+    if (filter === 'Money in' && t.amountKobo < 0) return false;
+    if (filter === 'Money out' && t.amountKobo >= 0) return false;
     if (filter === 'Savings' && t.type !== 'savings' && t.type !== 'interest') return false;
     if (filter === 'Invest' && t.type !== 'invest') return false;
     const q = query.trim().toLowerCase();
@@ -1653,9 +1674,9 @@ function ActivityPage({
                   {new Date(t.date).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}
                 </td>
                 <td style={{ color: 'var(--ink-500)', fontSize: 9.5, fontWeight: 650 }}>{t.ref}</td>
-                <td className={`num ${t.amount >= 0 ? 'amount-in' : 'amount-out'}`}>
-                  {t.amount >= 0 ? '+' : '−'}
-                  {ngn(Math.abs(t.amount))}
+                <td className={`num ${t.amountKobo >= 0 ? 'amount-in' : 'amount-out'}`}>
+                  {t.amountKobo >= 0 ? '+' : '−'}
+                  {formatNgn(abs(t.amountKobo))}
                 </td>
               </tr>
             ))}
@@ -2550,11 +2571,14 @@ function NewOverview({
   const s = useStore();
   const hide = s.hideBalance;
   const [cur, setCur] = useState<'NGN' | 'USD'>('NGN');
-  const money = (value: number) => (cur === 'USD' ? usd(value) : ngn(value));
-  const masked = (value: number) => (hide ? (cur === 'USD' ? '$••••' : '₦••••') : money(value));
-  const total = cur === 'USD' ? s.walletUsd + s.investmentsUsd : s.walletNgn + s.savings + s.investmentsNgn;
-  const savingsValue = cur === 'USD' ? 0 : s.savings;
-  const investValue = cur === 'USD' ? s.investmentsUsd : s.investmentsNgn;
+  const money = (value: Minor) => (cur === 'USD' ? formatUsd(value) : formatNgn(value));
+  const masked = (value: Minor) => (hide ? (cur === 'USD' ? '$••••' : '₦••••') : money(value));
+  const total =
+    cur === 'USD'
+      ? add(s.walletUsdCents, s.investUsd)
+      : add(s.walletNgnKobo, add(s.savings, s.investNgn));
+  const savingsValue = cur === 'USD' ? toMinor(0) : s.savings;
+  const investValue = cur === 'USD' ? s.investUsd : s.investNgn;
   const movers = marketMovers.slice(0, 4);
 
   return (
@@ -2667,7 +2691,7 @@ function NewOverview({
                     strokeWidth={1.8}
                   />
                   <span className="mover-end">
-                    <b>{m.currency === 'USD' ? usd(m.price) : ngn(m.price, 2)}</b>
+                    <b>{m.currency === 'USD' ? quoteUsd(m.price) : quoteNgn(m.price, 2)}</b>
                     <span className={m.change >= 0 ? 'delta up' : 'delta down'}>
                       {m.change >= 0 ? '+' : ''}
                       {m.change.toFixed(2)}%

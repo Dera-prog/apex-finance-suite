@@ -37,19 +37,12 @@ import {
   Zap,
 } from 'lucide-react';
 import { Avatar, ApexMark, Sparkline } from '@shared/ui';
-import {
-  compactNaira,
-  longDate,
-  marketMovers,
-  ngn,
-  pct,
-  relativeTime,
-  shortDate,
-  stocks,
-  usd,
-} from '@shared/data';
+import { longDate, marketMovers, ngn as quoteNgn, pct, relativeTime, shortDate, stocks, usd as quoteUsd } from '@shared/data';
+import { abs, add, compactNgn, formatNgn, formatPlain, formatUsd, parseNgn, pctOf, sub, sum, toMinor } from '@shared/money';
+import type { Minor } from '@shared/money';
+import type { PlanDto, TxnDto } from '@shared/api';
 import type { CSSProperties } from 'react';
-import type { Plan, PlanKind, Txn } from '@shared/data';
+import type { PlanKind } from '@shared/data';
 import { links, isLive } from '@shared/links';
 import { stockFor, useStore } from './store';
 import type { MoneyResult } from './store';
@@ -73,7 +66,7 @@ type Overlay =
   | { type: 'order'; symbol: string; side: 'buy' | 'sell' }
   | { type: 'money'; mode: MoneyMode; planId?: string }
   | { type: 'newPlan' }
-  | { type: 'receipt'; txn: Txn }
+  | { type: 'receipt'; txn: TxnDto }
   | { type: 'kyc' }
   | { type: 'banks' }
   | { type: 'install' }
@@ -110,10 +103,12 @@ const planIcon = (icon: string, size = 18) => {
 };
 const kindLabel = (kind: PlanKind) => (kind === 'fixed' ? 'Fixed' : kind === 'target' ? 'Target' : 'Flexible');
 const stockTint = (symbol: string) => stocks.find((s) => s.symbol === symbol)?.tint ?? '#EEF4FF';
-const holdingGain = (avg: number, price: number) => ((price - avg) / avg) * 100;
+const holdingGain = (avg: Minor, price: Minor) => ((price - avg) / avg) * 100;
 const priceText = (currency: 'NGN' | 'USD', value: number) =>
-  currency === 'USD' ? usd(value) : ngn(value, 2);
-const progressPct = (balance: number, target: number) => Math.min(100, Math.floor((balance / target) * 100));
+  currency === 'USD' ? quoteUsd(value) : quoteNgn(value, 2);
+const minorText = (currency: 'NGN' | 'USD', value: Minor) =>
+  currency === 'USD' ? formatUsd(value) : formatNgn(value, 2);
+const progressPct = (balance: Minor, target: Minor) => Math.min(100, Math.floor((balance / target) * 100));
 
 function useInstall() {
   const [event, setEvent] = useState<PromptEvent | null>(null);
@@ -350,10 +345,10 @@ function HomeScreen({
             {hide ? <EyeOff size={17} /> : <Eye size={17} />}
           </button>
         </div>
-        <div className="hero-amount">{maskAmount(hide, ngn(s.total, 2))}</div>
+        <div className="hero-amount">{maskAmount(hide, formatNgn(s.total, 2))}</div>
         <div className="hero-meta">
           <span className="hero-chip">
-            <TrendingUp size={13} /> {pct(4.8)} · {maskAmount(hide, `+${ngn(73000)}`)}
+            <TrendingUp size={13} /> {pct(4.8)} · {maskAmount(hide, `+${formatNgn(toMinor(73000))}`)}
           </span>
           <span>all time</span>
         </div>
@@ -368,15 +363,15 @@ function HomeScreen({
         <div className="hero-stats">
           <div>
             <span>Wallet</span>
-            <b>{maskAmount(hide, ngn(s.walletNgn))}</b>
+            <b>{maskAmount(hide, formatNgn(s.walletNgnKobo))}</b>
           </div>
           <div>
             <span>Savings</span>
-            <b>{maskAmount(hide, ngn(s.savings))}</b>
+            <b>{maskAmount(hide, formatNgn(s.savings))}</b>
           </div>
           <div>
             <span>Invest</span>
-            <b>{maskAmount(hide, ngn(s.investNgn))}</b>
+            <b>{maskAmount(hide, formatNgn(s.investNgn))}</b>
           </div>
         </div>
       </section>
@@ -435,7 +430,7 @@ function HomeScreen({
         </div>
         <div className="plan-scroll">
           {targetPlans.map((plan) => {
-            const pctDone = plan.target ? progressPct(plan.balance, plan.target) : 100;
+            const pctDone = plan.targetKobo ? progressPct(plan.balanceKobo, plan.targetKobo) : 100;
             return (
               <button
                 key={plan.id}
@@ -450,12 +445,12 @@ function HomeScreen({
                   <span className="mini-rate">{plan.rate}% p.a.</span>
                 </span>
                 <span className="plan-mini-name">{plan.name}</span>
-                <span className="plan-mini-balance">{maskAmount(hide, ngn(plan.balance))}</span>
+                <span className="plan-mini-balance">{maskAmount(hide, formatNgn(plan.balanceKobo))}</span>
                 <span className="bar" aria-hidden="true">
                   <span style={{ width: `${pctDone}%`, background: plan.color }} />
                 </span>
                 <span className="plan-mini-foot">
-                  {plan.target ? `${pctDone}% of ${compactNaira(plan.target)}` : 'Withdraw anytime'}
+                  {plan.targetKobo ? `${pctDone}% of ${compactNgn(plan.targetKobo)}` : 'Withdraw anytime'}
                   <ChevronRight size={14} />
                 </span>
               </button>
@@ -516,7 +511,7 @@ function HomeScreen({
         </div>
         <div className="rows card">
           {s.txns.slice(0, 4).map((t) => {
-            const credited = t.amount > 0 && t.status !== 'Failed';
+            const credited = t.amountKobo > 0 && t.status !== 'Failed';
             return (
               <button key={t.id} className="row txn-row" onClick={() => open({ type: 'receipt', txn: t })}>
                 <span className={`row-icon ${credited ? 'in' : 'out'} ${t.status === 'Failed' ? 'failed' : ''}`}>
@@ -531,7 +526,7 @@ function HomeScreen({
                 <span className={`txn-amount ${credited ? 'up' : ''}${t.status === 'Failed' ? ' void' : ''}`}>
                   {maskAmount(
                     hide,
-                    t.status === 'Failed' ? ngn(Math.abs(t.amount)) : `${credited ? '+' : '−'}${ngn(Math.abs(t.amount))}`,
+                    t.status === 'Failed' ? formatNgn(abs(t.amountKobo)) : `${credited ? '+' : '−'}${formatNgn(abs(t.amountKobo))}`,
                   )}
                 </span>
               </button>
@@ -570,9 +565,9 @@ function NewHome({
   const [cur, setCur] = useState<'NGN' | 'USD'>('NGN');
   const unread = s.notifications.filter((n) => n.unread).length;
   const movers = marketMovers.slice(0, 4);
-  const money = (value: number) => (cur === 'USD' ? usd(value) : ngn(value));
-  const total = cur === 'USD' ? s.walletUsd + s.investUsd : s.walletNgn + s.savings + s.investNgn;
-  const savingsValue = cur === 'USD' ? 0 : s.savings;
+  const money = (value: Minor) => (cur === 'USD' ? formatUsd(value) : formatNgn(value));
+  const total = cur === 'USD' ? add(s.walletUsdCents, s.investUsd) : add(s.walletNgnKobo, add(s.savings, s.investNgn));
+  const savingsValue = cur === 'USD' ? toMinor(0) : s.savings;
   const investValue = cur === 'USD' ? s.investUsd : s.investNgn;
 
   return (
@@ -713,7 +708,7 @@ function SaveScreen({ open }: { open: (o: Overlay) => void }) {
   const hide = s.prefs.hideBalance;
   const [filter, setFilter] = useState<'all' | PlanKind>('all');
   const plans = filter === 'all' ? s.plans : s.plans.filter((p) => p.kind === filter);
-  const projected = Math.round(s.plans.reduce((sum, p) => sum + (p.balance * p.rate) / 100, 0));
+  const projected = sum(s.plans.map((p) => pctOf(p.balanceKobo, p.rate)));
 
   return (
     <div className="screen">
@@ -730,11 +725,11 @@ function SaveScreen({ open }: { open: (o: Overlay) => void }) {
       <section className="sum-card">
         <div>
           <span>Total saved</span>
-          <b>{maskAmount(hide, ngn(s.savings))}</b>
+          <b>{maskAmount(hide, formatNgn(s.savings))}</b>
         </div>
         <div className="sum-side">
           <span>Projected interest</span>
-          <b className="green">{maskAmount(hide, ngn(projected))}</b>
+          <b className="green">{maskAmount(hide, formatNgn(projected))}</b>
           <em>annualised, illustrative</em>
         </div>
       </section>
@@ -778,8 +773,8 @@ function SaveScreen({ open }: { open: (o: Overlay) => void }) {
   );
 }
 
-function PlanCard({ plan, hide, onOpen }: { plan: Plan; hide: boolean; onOpen: () => void }) {
-  const progress = plan.target ? progressPct(plan.balance, plan.target) : 100;
+function PlanCard({ plan, hide, onOpen }: { plan: PlanDto; hide: boolean; onOpen: () => void }) {
+  const progress = plan.targetKobo ? progressPct(plan.balanceKobo, plan.targetKobo) : 100;
   return (
     <article className="plan-card" style={{ '--plan-tint': plan.pastel } as CSSProperties}>
       <button className="plan-card-top" onClick={onOpen} aria-label={`Open ${plan.name}`}>
@@ -794,14 +789,14 @@ function PlanCard({ plan, hide, onOpen }: { plan: Plan; hide: boolean; onOpen: (
           {kindLabel(plan.kind)}
         </span>
       </button>
-      <div className="plan-card-balance">{maskAmount(hide, ngn(plan.balance, 2))}</div>
-      {plan.target ? (
+      <div className="plan-card-balance">{maskAmount(hide, formatNgn(plan.balanceKobo, 2))}</div>
+      {plan.targetKobo ? (
         <>
           <div className="bar big">
             <span style={{ width: `${progress}%`, background: plan.color }} />
           </div>
           <div className="bar-meta">
-            <span>{progress}% of {ngn(plan.target)}</span>
+            <span>{progress}% of {formatNgn(plan.targetKobo)}</span>
             <span>{plan.rate}% p.a.</span>
           </div>
         </>
@@ -868,15 +863,15 @@ function InvestScreen({ open }: { open: (o: Overlay) => void }) {
             <TrendingUp size={13} /> {pct(4.8)}
           </span>
         </div>
-        <b className="invest-total">{maskAmount(hide, ngn(s.investNgn))}</b>
+        <b className="invest-total">{maskAmount(hide, formatNgn(s.investNgn))}</b>
         <div className="invest-split two">
           <div>
             <span>US shares</span>
-            <b>{maskAmount(hide, usd(s.investUsd))}</b>
+            <b>{maskAmount(hide, formatUsd(s.investUsd))}</b>
           </div>
           <div>
             <span>USD wallet</span>
-            <b>{maskAmount(hide, usd(s.walletUsd))}</b>
+            <b>{maskAmount(hide, formatUsd(s.walletUsdCents))}</b>
           </div>
         </div>
       </section>
@@ -908,8 +903,8 @@ function InvestScreen({ open }: { open: (o: Overlay) => void }) {
             {s.holdings.map((h) => {
               const stock = stockFor(h.symbol);
               if (!stock) return null;
-              const value = h.units * stock.price;
-              const gain = holdingGain(h.avgCost, stock.price);
+              const value = toMinor(h.units * stock.price);
+              const gain = holdingGain(h.avgCostMinor, h.priceMinor);
               return (
                 <button key={h.symbol} className="row" onClick={() => open({ type: 'stock', symbol: h.symbol })}>
                   <span className="tile" style={{ background: stock.tint }}>
@@ -918,11 +913,11 @@ function InvestScreen({ open }: { open: (o: Overlay) => void }) {
                   <span className="row-main">
                     <span className="row-title">{stock.name}</span>
                     <span className="row-sub">
-                      {h.units} units · avg {priceText(stock.currency, h.avgCost)}
+                      {h.units} units · avg {minorText(stock.currency, h.avgCostMinor)}
                     </span>
                   </span>
                   <span className="row-end">
-                    <b>{maskAmount(hide, stock.currency === 'USD' ? usd(value) : ngn(value))}</b>
+                    <b>{maskAmount(hide, minorText(stock.currency, value))}</b>
                     <span className={gain >= 0 ? 'delta up' : 'delta down'}>{pct(gain)}</span>
                   </span>
                 </button>
@@ -1936,8 +1931,8 @@ function PlanSheet({ id, close, open }: { id: string; close: () => void; open: (
   const [note, setNote] = useState('');
   const plan = s.plans.find((p) => p.id === id);
   if (!plan) return null;
-  const progress = plan.target ? progressPct(plan.balance, plan.target) : 100;
-  const remaining = plan.target ? plan.target - plan.balance : 0;
+  const progress = plan.targetKobo ? progressPct(plan.balanceKobo, plan.targetKobo) : 100;
+  const remaining = plan.targetKobo ? sub(plan.targetKobo, plan.balanceKobo) : toMinor(0);
   const locked = plan.kind === 'fixed';
 
   return (
@@ -1947,15 +1942,15 @@ function PlanSheet({ id, close, open }: { id: string; close: () => void; open: (
           {planIcon(plan.icon, 22)}
         </span>
         <span>Plan balance</span>
-        <b>{maskAmount(hide, ngn(plan.balance, 2))}</b>
-        {plan.target ? (
+        <b>{maskAmount(hide, formatNgn(plan.balanceKobo, 2))}</b>
+        {plan.targetKobo ? (
           <>
             <div className="bar big">
               <span style={{ width: `${progress}%`, background: plan.color }} />
             </div>
             <p className="plan-hero-meta">
-              {progress}% of {maskAmount(hide, ngn(plan.target))}
-              {remaining > 0 ? ` · ${maskAmount(hide, ngn(remaining))} to go` : ' · target reached'}
+              {progress}% of {maskAmount(hide, formatNgn(plan.targetKobo))}
+              {remaining > 0 ? ` · ${maskAmount(hide, formatNgn(remaining))} to go` : ' · target reached'}
             </p>
           </>
         ) : (
@@ -1978,10 +1973,10 @@ function PlanSheet({ id, close, open }: { id: string; close: () => void; open: (
             <b>{longDate(plan.maturity)}</b>
           </div>
         )}
-        {plan.monthly && (
+        {plan.monthlyKobo && (
           <div>
             <span>Auto-save</span>
-            <b>{maskAmount(hide, ngn(plan.monthly))} monthly</b>
+            <b>{maskAmount(hide, formatNgn(plan.monthlyKobo))} monthly</b>
           </div>
         )}
         <div>
@@ -2024,7 +2019,7 @@ function StockSheet({ symbol, close, open }: { symbol: string; close: () => void
   const stock = stockFor(symbol);
   if (!stock) return null;
   const holding = s.holdings.find((h) => h.symbol === symbol);
-  const c = (value: number) => priceText(stock.currency, value);
+  const c = (value: Minor) => minorText(stock.currency, value);
   const pctChange = pct(stock.change, 2);
 
   return (
@@ -2034,7 +2029,7 @@ function StockSheet({ symbol, close, open }: { symbol: string; close: () => void
           {stock.symbol.slice(0, 2)}
         </span>
         <div className="stock-price">
-          <b>{c(stock.price)}</b>
+          <b>{c(toMinor(stock.price))}</b>
           <span className={stock.change >= 0 ? 'delta up' : 'delta down'}>{pctChange} today</span>
         </div>
       </div>
@@ -2049,8 +2044,8 @@ function StockSheet({ symbol, close, open }: { symbol: string; close: () => void
         />
       </div>
       <div className="range-row">
-        <span>Day low {c(stock.price * 0.985)}</span>
-        <span>Day high {c(stock.price * 1.011)}</span>
+        <span>Day low {c(toMinor(stock.price * 0.985))}</span>
+        <span>Day high {c(toMinor(stock.price * 1.011))}</span>
       </div>
 
       <p className="stock-about">{stock.about}</p>
@@ -2077,7 +2072,7 @@ function StockSheet({ symbol, close, open }: { symbol: string; close: () => void
       {holding && (
         <div className="holding-note">
           <span>You hold {holding.units} units</span>
-          <b>{maskAmount(s.prefs.hideBalance, c(holding.units * stock.price))}</b>
+          <b>{maskAmount(s.prefs.hideBalance, c(toMinor(holding.units * stock.price)))}</b>
         </div>
       )}
 
@@ -2115,11 +2110,11 @@ function OrderSheet({
   const [error, setError] = useState('');
   if (!stock) return null;
   const holding = s.holdings.find((h) => h.symbol === symbol);
-  const gross = units * stock.price;
-  const fee = gross * 0.015;
-  const total = side === 'buy' ? gross + fee : gross - fee;
-  const available = stock.currency === 'USD' ? s.walletUsd : s.walletNgn;
-  const c = (value: number) => priceText(stock.currency, value);
+  const gross = toMinor(units * stock.price);
+  const fee = pctOf(gross, 1.5);
+  const total = side === 'buy' ? add(gross, fee) : sub(gross, fee);
+  const available = stock.currency === 'USD' ? s.walletUsdCents : s.walletNgnKobo;
+  const c = (value: Minor) => minorText(stock.currency, value);
   const maxUnits = holding?.units ?? 0;
 
   const submit = (e: React.FormEvent) => {
@@ -2138,7 +2133,7 @@ function OrderSheet({
       <form onSubmit={submit} className="order-form">
         <div className="order-price">
           <span>Market price</span>
-          <b>{c(stock.price)}</b>
+          <b>{c(toMinor(stock.price))}</b>
         </div>
         <label className="field">
           <span>Units</span>
@@ -2162,7 +2157,7 @@ function OrderSheet({
         {side === 'sell' && <p className="help">You hold {maxUnits} units. Selling all closes the position.</p>}
         {side === 'buy' && (
           <p className="help">
-            Available: {maskAmount(s.prefs.hideBalance, stock.currency === 'USD' ? usd(available) : ngn(available))}
+            Available: {maskAmount(s.prefs.hideBalance, minorText(stock.currency, available))}
             {stock.currency === 'USD' ? ' · FX quoted at ₦1,600 / $1' : ''}
           </p>
         )}
@@ -2207,24 +2202,24 @@ function MoneySheet({
   const [source, setSource] = useState(s.banks.find((b) => b.primary)?.name ?? s.banks[0]?.name ?? 'GTBank');
   const [recipient, setRecipient] = useState('');
   const [error, setError] = useState('');
-  const value = Number(amount.replace(/,/g, '')) || 0;
+  const value = parseNgn(amount) ?? toMinor(0);
 
-  const config: Record<MoneyMode, { title: string; subtitle: string; cta: string; available: number; prefix: string }> = {
-    add: { title: 'Add money', subtitle: 'Fund your naira wallet from a linked bank', cta: 'Add money', available: 10_000_000, prefix: '₦' },
-    withdraw: { title: 'Withdraw', subtitle: 'Send from your wallet to a linked bank', cta: 'Withdraw', available: s.walletNgn, prefix: '₦' },
-    transfer: { title: 'Send money', subtitle: 'Instant transfer to an Apex tag or bank', cta: 'Send money', available: s.walletNgn, prefix: '₦' },
+  const config: Record<MoneyMode, { title: string; subtitle: string; cta: string; available: Minor; prefix: string }> = {
+    add: { title: 'Add money', subtitle: 'Fund your naira wallet from a linked bank', cta: 'Add money', available: toMinor(10_000_000), prefix: '₦' },
+    withdraw: { title: 'Withdraw', subtitle: 'Send from your wallet to a linked bank', cta: 'Withdraw', available: s.walletNgnKobo, prefix: '₦' },
+    transfer: { title: 'Send money', subtitle: 'Instant transfer to an Apex tag or bank', cta: 'Send money', available: s.walletNgnKobo, prefix: '₦' },
     'plan-add': {
       title: plan ? `Add to ${plan.name}` : 'Add to plan',
       subtitle: 'Move money from your wallet into this plan',
       cta: 'Confirm top-up',
-      available: s.walletNgn,
+      available: s.walletNgnKobo,
       prefix: '₦',
     },
     'plan-withdraw': {
       title: plan ? `Withdraw from ${plan.name}` : 'Withdraw from plan',
       subtitle: 'Move this money back to your wallet',
       cta: 'Confirm withdrawal',
-      available: plan?.balance ?? 0,
+      available: plan?.balanceKobo ?? toMinor(0),
       prefix: '₦',
     },
   };
@@ -2268,15 +2263,15 @@ function MoneySheet({
         <div className="quick-chips">
           {[5000, 10000, 25000, 50000].map((n) => (
             <button key={n} type="button" className="chip" onClick={() => setAmount(String(n))}>
-              {compactNaira(n)}
+              {compactNgn(toMinor(n))}
             </button>
           ))}
-          <button type="button" className="chip" onClick={() => setAmount(String(Math.floor(cfg.available)))}>
+          <button type="button" className="chip" onClick={() => setAmount(formatPlain(cfg.available))}>
             Max
           </button>
         </div>
         <p className="help">
-          Available {mode === 'add' ? 'limit' : 'balance'}: {maskAmount(s.prefs.hideBalance, ngn(cfg.available))}
+          Available {mode === 'add' ? 'limit' : 'balance'}: {maskAmount(s.prefs.hideBalance, formatNgn(cfg.available))}
         </p>
 
         {mode === 'transfer' ? (
@@ -2344,9 +2339,9 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
     const result = s.createPlan({
       name,
       kind,
-      initial: Number(initial) || 0,
-      target: kind === 'target' ? Number(target) || 0 : undefined,
-      monthly: kind === 'target' ? Number(monthly) || 0 : undefined,
+      initial: parseNgn(initial) ?? toMinor(0),
+      target: kind === 'target' ? (parseNgn(target) ?? toMinor(0)) : undefined,
+      monthly: kind === 'target' ? (parseNgn(monthly) ?? toMinor(0)) : undefined,
     });
     if (!result.ok) {
       setError(result.error ?? 'Could not create the plan.');
@@ -2423,7 +2418,7 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
           </div>
         )}
         <p className="help">
-          Wallet balance: {maskAmount(s.prefs.hideBalance, ngn(s.walletNgn))}. The starting amount moves from your
+          Wallet balance: {maskAmount(s.prefs.hideBalance, formatNgn(s.walletNgnKobo))}. The starting amount moves from your
           wallet.
         </p>
         {error && <p className="form-error">{error}</p>}
@@ -2435,11 +2430,11 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
   );
 }
 
-function ReceiptSheet({ txn, close }: { txn: Txn; close: () => void }) {
+function ReceiptSheet({ txn, close }: { txn: TxnDto; close: () => void }) {
   const s = useStore();
   const hide = s.prefs.hideBalance;
   const failed = txn.status === 'Failed';
-  const positive = txn.amount > 0 && !failed;
+  const positive = txn.amountKobo > 0 && !failed;
   return (
     <Sheet title="Receipt" subtitle="Saved to your demo activity" close={close}>
       <div className="receipt">
@@ -2448,7 +2443,7 @@ function ReceiptSheet({ txn, close }: { txn: Txn; close: () => void }) {
         </span>
         <h3>{failed ? 'Payment failed' : positive ? 'Money received' : 'Payment sent'}</h3>
         <b className={positive ? 'receipt-amount up' : `receipt-amount${failed ? ' void' : ''}`}>
-          {maskAmount(hide, `${failed ? '' : positive ? '+' : '−'}${ngn(Math.abs(txn.amount), 2)}`)}
+          {maskAmount(hide, `${failed ? '' : positive ? '+' : '−'}${formatNgn(abs(txn.amountKobo), 2)}`)}
         </b>
         <p className="receipt-meta">{txn.title}</p>
         <div className="receipt-lines">
@@ -2517,8 +2512,8 @@ function ActivitySheet({ close, open }: { close: () => void; open: (o: Overlay) 
   const list = s.txns.filter((t) => {
     if (filter === 'all') return true;
     const settled = t.status !== 'Failed';
-    if (filter === 'in') return settled && t.amount > 0 && t.type !== 'savings' && t.type !== 'invest';
-    if (filter === 'out') return settled && t.amount < 0 && t.type !== 'savings' && t.type !== 'invest';
+    if (filter === 'in') return settled && t.amountKobo > 0 && t.type !== 'savings' && t.type !== 'invest';
+    if (filter === 'out') return settled && t.amountKobo < 0 && t.type !== 'savings' && t.type !== 'invest';
     return t.type === filter;
   });
 
@@ -2541,7 +2536,7 @@ function ActivitySheet({ close, open }: { close: () => void; open: (o: Overlay) 
       </div>
       <div className="rows card">
         {list.map((t) => {
-          const credited = t.amount > 0 && t.status !== 'Failed';
+          const credited = t.amountKobo > 0 && t.status !== 'Failed';
           return (
             <button key={t.id} className="row txn-row" onClick={() => open({ type: 'receipt', txn: t })}>
               <span className={`row-icon ${credited ? 'in' : 'out'} ${t.status === 'Failed' ? 'failed' : ''}`}>
@@ -2555,7 +2550,7 @@ function ActivitySheet({ close, open }: { close: () => void; open: (o: Overlay) 
               </span>
               <span className="row-end">
                 <b className={credited ? 'green' : t.status === 'Failed' ? 'void' : ''}>
-                  {maskAmount(hide, t.status === 'Failed' ? ngn(Math.abs(t.amount)) : `${credited ? '+' : '−'}${ngn(Math.abs(t.amount))}`)}
+                  {maskAmount(hide, t.status === 'Failed' ? formatNgn(abs(t.amountKobo)) : `${credited ? '+' : '−'}${formatNgn(abs(t.amountKobo))}`)}
                 </b>
                 <span className={t.status === 'Failed' ? 'delta down' : 'delta muted'}>{t.status}</span>
               </span>

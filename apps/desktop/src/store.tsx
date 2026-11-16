@@ -1,47 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import {
-  banks as seedBanks,
-  holdings as seedHoldings,
-  initialPlans,
-  notifications as seedNotifications,
-  stocks,
-  transactions as seedTxns,
-  user,
-  wallet,
-} from '@shared/data';
-import type { Bank, Holding, Notification, Plan, PlanKind, Txn } from '@shared/data';
+import { stocks, user } from '@shared/data';
+import type { PlanKind } from '@shared/data';
+import { API } from '@shared/api';
+import type { MobileStateResponse, PlanDto, Profile as ApiProfile, TxnDto } from '@shared/api';
+import { demoMobileState } from '@shared/demo-state';
+import { add, formatNgn, neg, pctOf, roundMinor, sub, sum, times, toMinor } from '@shared/money';
+import type { Minor } from '@shared/money';
 
-export type Profile = {
-  name: string;
-  firstName: string;
-  initials: string;
-  phone: string;
-  email: string;
-  bvn: string;
-  nin: string;
-  kycLevel: 1 | 2;
-  kycLabel: string;
-  address: string;
-  memberSince: string;
-  bank: string;
-  bankAccount: string;
-  usStocksAccount: string;
-  avatarTint: string;
-};
+export type Profile = ApiProfile & { bank: string };
 
-export type AppState = {
-  account: 'seed' | 'new';
-  profile: Profile;
-  walletNgn: number;
-  walletUsd: number;
-  investmentsNgn: number;
-  investmentsUsd: number;
-  plans: Plan[];
-  holdings: Holding[];
-  txns: Txn[];
-  notifications: Notification[];
-  banks: Bank[];
+type Prefs = {
   biometric: boolean;
   priceAlerts: boolean;
   productNews: boolean;
@@ -52,15 +21,44 @@ export type AppState = {
   darkMode: boolean;
 };
 
+type PrefKey = 'biometric' | 'priceAlerts' | 'productNews' | 'pinAlerts' | 'emailAlerts' | 'extHours' | 'darkMode';
+
+export type DesktopState = Omit<MobileStateResponse, 'profile'> & { profile: Profile } & Prefs;
+
 const STORAGE_KEY = 'apex.desktop.v2';
 
-const usdHoldings = () => seedHoldings.filter((h) => h.symbol === 'NVDA' || h.symbol === 'AAPL');
+const MIN_DEPOSIT = toMinor(100);
+const MIN_TRANSFER = toMinor(50);
+const MAX_FUNDING = toMinor(10_000_000);
+const MIN_PLAN_OPENING = toMinor(1_000);
+const DEMO_NGN_PER_USD = 1600;
 
-const seedProfile = (): Profile => ({ ...user, usStocksAccount: '••• ••• 4471' });
+const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '');
+
+async function fetchRemoteState(): Promise<MobileStateResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE}${API.demoState}`, { headers: { accept: 'application/json' } });
+    if (!res.ok) return null;
+    return (await res.json()) as MobileStateResponse;
+  } catch {
+    return null;
+  }
+}
 
 const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-function seedPrefs() {
+const prefsOf = (s: DesktopState): Prefs => ({
+  biometric: s.biometric,
+  priceAlerts: s.priceAlerts,
+  productNews: s.productNews,
+  hideBalance: s.hideBalance,
+  pinAlerts: s.pinAlerts,
+  emailAlerts: s.emailAlerts,
+  extHours: s.extHours,
+  darkMode: s.darkMode,
+});
+
+function seedPrefs(): Prefs {
   return {
     biometric: true,
     priceAlerts: true,
@@ -73,25 +71,12 @@ function seedPrefs() {
   };
 }
 
-const seed = (): AppState => {
-  const usdValue = usdHoldings().reduce((sum, h) => sum + h.units * h.price, 0);
-  return {
-    account: 'seed',
-    profile: seedProfile(),
-    walletNgn: wallet.ngn,
-    walletUsd: wallet.usd,
-    investmentsNgn: wallet.investments,
-    investmentsUsd: usdValue,
-    plans: initialPlans.map((p) => ({ ...p })),
-    holdings: seedHoldings.map((h) => ({ ...h })),
-    txns: seedTxns.map((t) => ({ ...t })),
-    notifications: seedNotifications.map((n) => ({ ...n })),
-    banks: seedBanks.map((b) => ({ ...b })),
-    ...seedPrefs(),
-  };
+const seed = (): DesktopState => {
+  const base = demoMobileState();
+  return { ...base, profile: { ...base.profile, bank: user.bank }, ...seedPrefs() };
 };
 
-const freshAccount = (input: { name: string; email: string; phone: string }): AppState => {
+const freshAccount = (input: { name: string; email: string; phone: string }): DesktopState => {
   const name = input.name.trim();
   const firstName = name.split(/\s+/)[0] || 'Friend';
   const initials = name
@@ -120,10 +105,8 @@ const freshAccount = (input: { name: string; email: string; phone: string }): Ap
       usStocksAccount: 'Not issued yet',
       avatarTint: '#FFDCCE',
     },
-    walletNgn: 0,
-    walletUsd: 0,
-    investmentsNgn: 0,
-    investmentsUsd: 0,
+    walletNgnKobo: toMinor(0),
+    walletUsdCents: toMinor(0),
     plans: [],
     holdings: [],
     txns: [],
@@ -142,41 +125,47 @@ const freshAccount = (input: { name: string; email: string; phone: string }): Ap
   };
 };
 
-function load(): AppState {
+function load(): { state: DesktopState; stored: boolean } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return seed();
-    const parsed = JSON.parse(raw) as Partial<AppState>;
-    if (typeof parsed.walletNgn !== 'number' || !Array.isArray(parsed.plans)) return seed();
+    if (!raw) return { state: seed(), stored: false };
+    const parsed = JSON.parse(raw) as Partial<DesktopState>;
+    if (typeof parsed.walletNgnKobo !== 'number' || !Array.isArray(parsed.plans)) {
+      return { state: seed(), stored: false };
+    }
     const base = seed();
     return {
-      ...base,
-      ...parsed,
-      account: parsed.account ?? 'seed',
-      profile: { ...base.profile, ...parsed.profile },
+      state: {
+        ...base,
+        ...parsed,
+        account: parsed.account ?? 'seed',
+        profile: { ...base.profile, ...parsed.profile },
+      },
+      stored: true,
     };
   } catch {
-    return seed();
+    return { state: seed(), stored: false };
   }
 }
 
-export type TradeResult = { ok: boolean; error?: string; message?: string };
+export type TradeResult = { ok: boolean; error?: string };
 
-type Store = AppState & {
-  total: number;
-  savings: number;
-  investmentValue: number;
+type Store = DesktopState & {
+  total: Minor;
+  savings: Minor;
+  investNgn: Minor;
+  investUsd: Minor;
   toast: string | null;
   notify: (message: string) => void;
-  addMoney: (amount: number, source: string) => TradeResult;
-  withdraw: (amount: number, bankName: string) => TradeResult;
-  transfer: (amount: number, name: string) => TradeResult;
-  createPlan: (input: { name: string; kind: PlanKind; initial: number; target?: number; monthly?: number }) => TradeResult;
-  planDeposit: (id: string, amount: number) => TradeResult;
-  planWithdraw: (id: string, amount: number) => TradeResult;
+  addMoney: (amount: Minor, source: string) => TradeResult;
+  withdraw: (amount: Minor, bankName: string) => TradeResult;
+  transfer: (amount: Minor, name: string) => TradeResult;
+  createPlan: (input: { name: string; kind: PlanKind; initial: Minor; target?: Minor; monthly?: Minor }) => TradeResult;
+  planDeposit: (id: string, amount: Minor) => TradeResult;
+  planWithdraw: (id: string, amount: Minor) => TradeResult;
   trade: (symbol: string, units: number, side: 'buy' | 'sell') => TradeResult;
   markAllRead: () => void;
-  toggleSetting: (key: 'biometric' | 'priceAlerts' | 'productNews' | 'pinAlerts' | 'emailAlerts' | 'extHours' | 'darkMode') => void;
+  toggleSetting: (key: PrefKey) => void;
   toggleBalance: () => void;
   reset: () => void;
   startFresh: (input: { name: string; email: string; phone: string }) => void;
@@ -195,13 +184,22 @@ const planLook = (kind: PlanKind) =>
       ? { color: '#06720C', pastel: '#C3F3C6', icon: 'target', rate: 14 }
       : { color: '#1D52CE', pastel: '#A9CBFF', icon: 'bolt', rate: 12 };
 
-const monthName = (d: Date) => d.toLocaleDateString('en-NG', { month: 'long' });
-const USD_NGN = 1600;
-
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AppState>(() => load());
+  const [boot] = useState(load);
+  const [state, setState] = useState<DesktopState>(boot.state);
   const [toast, setToast] = useState<string | null>(null);
   const timer = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (boot.stored) return;
+    let alive = true;
+    void fetchRemoteState().then((remote) => {
+      if (alive && remote) setState((current) => ({ ...remote, profile: { ...remote.profile, bank: user.bank }, ...prefsOf(current) }));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [boot.stored]);
 
   useEffect(() => {
     try {
@@ -231,156 +229,136 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (timer.current) window.clearTimeout(timer.current);
   }, []);
 
+  const pushTxn = (txn: TxnDto) => (s: DesktopState): TxnDto[] => [txn, ...s.txns];
+
   const addMoney = useCallback<Store['addMoney']>((amount, source) => {
-    if (!Number.isFinite(amount) || amount < 100) return { ok: false, error: 'Enter at least ₦100.' };
-    if (amount > 10_000_000) return { ok: false, error: 'Demo funding is capped at ₦10,000,000 per transfer.' };
-    setState((s) => ({
-      ...s,
-      walletNgn: s.walletNgn + amount,
-      txns: [
-        {
-          id: `tx-${Date.now()}`,
-          title: `Bank transfer from ${source}`,
-          meta: 'Wallet funding · demo balance',
-          amount,
-          date: new Date().toISOString(),
-          status: 'Completed',
-          type: 'deposit',
-          ref: makeRef('DEP'),
-        },
-        ...s.txns,
-      ],
-    }));
-    notify(`₦${amount.toLocaleString('en-NG')} added to your wallet`);
+    if (!Number.isInteger(amount) || amount < MIN_DEPOSIT) return { ok: false, error: 'Enter at least ₦100.' };
+    if (amount > MAX_FUNDING) return { ok: false, error: 'Demo funding is capped at ₦10,000,000 per transfer.' };
+    const txn: TxnDto = {
+      id: `tx-${Date.now()}`,
+      title: `Bank transfer from ${source}`,
+      meta: 'Wallet funding · demo balance',
+      amountKobo: amount,
+      date: new Date().toISOString(),
+      status: 'Completed',
+      type: 'deposit',
+      ref: makeRef('DEP'),
+    };
+    setState((s) => ({ ...s, walletNgnKobo: add(s.walletNgnKobo, amount), txns: pushTxn(txn)(s) }));
+    notify(`${formatNgn(amount)} added to your wallet`);
     return { ok: true };
   }, [notify]);
 
   const withdraw = useCallback<Store['withdraw']>((amount, bankName) => {
-    if (!Number.isFinite(amount) || amount < 100) return { ok: false, error: 'Enter at least ₦100.' };
-    if (amount > state.walletNgn) return { ok: false, error: 'Amount is more than your available wallet balance.' };
-    setState((s) => ({
-      ...s,
-      walletNgn: s.walletNgn - amount,
-      txns: [
-        {
-          id: `tx-${Date.now()}`,
-          title: `Withdrawal to ${bankName}`,
-          meta: 'Beneficiary bank · demo rails',
-          amount: -amount,
-          date: new Date().toISOString(),
-          status: 'Completed',
-          type: 'withdrawal',
-          ref: makeRef('WDR'),
-        },
-        ...s.txns,
-      ],
-    }));
-    notify(`₦${amount.toLocaleString('en-NG')} sent to ${bankName}`);
+    if (!Number.isInteger(amount) || amount < MIN_DEPOSIT) return { ok: false, error: 'Enter at least ₦100.' };
+    if (amount > state.walletNgnKobo) return { ok: false, error: 'Amount is more than your available wallet balance.' };
+    const txn: TxnDto = {
+      id: `tx-${Date.now()}`,
+      title: `Withdrawal to ${bankName}`,
+      meta: 'Beneficiary bank · demo rails',
+      amountKobo: neg(amount),
+      date: new Date().toISOString(),
+      status: 'Completed',
+      type: 'withdrawal',
+      ref: makeRef('WDR'),
+    };
+    setState((s) => ({ ...s, walletNgnKobo: sub(s.walletNgnKobo, amount), txns: pushTxn(txn)(s) }));
+    notify(`${formatNgn(amount)} sent to ${bankName}`);
     return { ok: true };
-  }, [notify, state.walletNgn]);
+  }, [notify, state.walletNgnKobo]);
 
   const transfer = useCallback<Store['transfer']>((amount, name) => {
-    if (!Number.isFinite(amount) || amount < 50) return { ok: false, error: 'Enter at least ₦50.' };
-    if (amount > state.walletNgn) return { ok: false, error: 'Amount is more than your available wallet balance.' };
+    if (!Number.isInteger(amount) || amount < MIN_TRANSFER) return { ok: false, error: 'Enter at least ₦50.' };
+    if (amount > state.walletNgnKobo) return { ok: false, error: 'Amount is more than your available wallet balance.' };
     if (!name.trim()) return { ok: false, error: 'Add a recipient name or Apex tag.' };
-    setState((s) => ({
-      ...s,
-      walletNgn: s.walletNgn - amount,
-      txns: [
-        {
-          id: `tx-${Date.now()}`,
-          title: `Transfer to ${name.trim()}`,
-          meta: 'Apex wallet · instant',
-          amount: -amount,
-          date: new Date().toISOString(),
-          status: 'Completed',
-          type: 'transfer',
-          ref: makeRef('TRF'),
-        },
-        ...s.txns,
-      ],
-    }));
-    notify(`₦${amount.toLocaleString('en-NG')} sent to ${name.trim()}`);
+    const txn: TxnDto = {
+      id: `tx-${Date.now()}`,
+      title: `Transfer to ${name.trim()}`,
+      meta: 'Apex wallet · instant',
+      amountKobo: neg(amount),
+      date: new Date().toISOString(),
+      status: 'Completed',
+      type: 'transfer',
+      ref: makeRef('TRF'),
+    };
+    setState((s) => ({ ...s, walletNgnKobo: sub(s.walletNgnKobo, amount), txns: pushTxn(txn)(s) }));
+    notify(`${formatNgn(amount)} sent to ${name.trim()}`);
     return { ok: true };
-  }, [notify, state.walletNgn]);
+  }, [notify, state.walletNgnKobo]);
 
   const createPlan = useCallback<Store['createPlan']>((input) => {
-    const initial = input.initial;
     if (!input.name.trim()) return { ok: false, error: 'Give the plan a name.' };
-    if (!Number.isFinite(initial) || initial < 1000) return { ok: false, error: 'Start with at least ₦1,000.' };
-    if (initial > state.walletNgn) return { ok: false, error: 'Your wallet does not have enough for that starting amount.' };
-    if (input.kind === 'target' && (!input.target || input.target <= initial)) {
+    if (!Number.isInteger(input.initial) || input.initial < MIN_PLAN_OPENING) {
+      return { ok: false, error: 'Start with at least ₦1,000.' };
+    }
+    if (input.initial > state.walletNgnKobo) return { ok: false, error: 'Your wallet does not have enough for that starting amount.' };
+    if (input.kind === 'target' && (!input.target || input.target <= input.initial)) {
       return { ok: false, error: 'A target must be higher than the starting amount.' };
     }
-    const look = planLook(input.kind);
     const now = new Date();
     const maturity = new Date(now);
     maturity.setDate(maturity.getDate() + 90);
-    const plan: Plan = {
+    const plan: PlanDto = {
       id: `plan-${Date.now()}`,
       name: input.name.trim(),
       kind: input.kind,
-      balance: initial,
-      target: input.kind === 'target' ? input.target : undefined,
+      balanceKobo: input.initial,
+      targetKobo: input.kind === 'target' ? input.target : undefined,
       subtitle:
         input.kind === 'fixed'
           ? `90-day fixed deposit · matures ${maturity.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}`
           : input.kind === 'target'
-            ? `${input.monthly ? `₦${input.monthly.toLocaleString('en-NG')} auto-save monthly` : 'Manual top-ups'}`
+            ? `${input.monthly ? `${formatNgn(input.monthly)} auto-save monthly` : 'Manual top-ups'}`
             : 'Withdraw anytime · interest paid monthly',
       opened: now.toISOString(),
       maturity: input.kind === 'fixed' ? maturity.toISOString() : undefined,
-      monthly: input.monthly,
-      ...look,
+      monthlyKobo: input.monthly,
+      ...planLook(input.kind),
+    };
+    const txn: TxnDto = {
+      id: `tx-${Date.now()}`,
+      title: plan.name,
+      meta: `${input.kind === 'fixed' ? 'Fixed' : input.kind === 'target' ? 'Target' : 'Flexible'} savings · plan opened`,
+      amountKobo: neg(input.initial),
+      date: now.toISOString(),
+      status: 'Completed',
+      type: 'savings',
+      ref: makeRef('SAV'),
     };
     setState((s) => ({
       ...s,
-      walletNgn: s.walletNgn - initial,
+      walletNgnKobo: sub(s.walletNgnKobo, input.initial),
       plans: [plan, ...s.plans],
-      txns: [
-        {
-          id: `tx-${Date.now()}`,
-          title: plan.name,
-          meta: `${input.kind === 'fixed' ? 'Fixed' : input.kind === 'target' ? 'Target' : 'Flexible'} savings · plan opened`,
-          amount: -initial,
-          date: now.toISOString(),
-          status: 'Completed',
-          type: 'savings',
-          ref: makeRef('SAV'),
-        },
-        ...s.txns,
-      ],
+      txns: pushTxn(txn)(s),
     }));
-    notify(`${plan.name} opened with ₦${initial.toLocaleString('en-NG')}`);
+    notify(`${plan.name} opened with ${formatNgn(input.initial)}`);
     return { ok: true };
-  }, [notify, state.walletNgn]);
+  }, [notify, state.walletNgnKobo]);
 
   const planDeposit = useCallback<Store['planDeposit']>((id, amount) => {
-    if (!Number.isFinite(amount) || amount < 100) return { ok: false, error: 'Enter at least ₦100.' };
-    if (amount > state.walletNgn) return { ok: false, error: 'Your wallet does not have enough for this top-up.' };
     const plan = state.plans.find((p) => p.id === id);
     if (!plan) return { ok: false, error: 'Plan not found.' };
+    if (!Number.isInteger(amount) || amount < MIN_DEPOSIT) return { ok: false, error: 'Enter at least ₦100.' };
+    if (amount > state.walletNgnKobo) return { ok: false, error: 'Your wallet does not have enough for this top-up.' };
+    const txn: TxnDto = {
+      id: `tx-${Date.now()}`,
+      title: plan.name,
+      meta: 'Savings top-up · from wallet',
+      amountKobo: neg(amount),
+      date: new Date().toISOString(),
+      status: 'Completed',
+      type: 'savings',
+      ref: makeRef('SAV'),
+    };
     setState((s) => ({
       ...s,
-      walletNgn: s.walletNgn - amount,
-      plans: s.plans.map((p) => (p.id === id ? { ...p, balance: p.balance + amount } : p)),
-      txns: [
-        {
-          id: `tx-${Date.now()}`,
-          title: plan.name,
-          meta: 'Savings top-up · from wallet',
-          amount: -amount,
-          date: new Date().toISOString(),
-          status: 'Completed',
-          type: 'savings',
-          ref: makeRef('SAV'),
-        },
-        ...s.txns,
-      ],
+      walletNgnKobo: sub(s.walletNgnKobo, amount),
+      plans: s.plans.map((p) => (p.id === id ? { ...p, balanceKobo: add(p.balanceKobo, amount) } : p)),
+      txns: pushTxn(txn)(s),
     }));
-    notify(`₦${amount.toLocaleString('en-NG')} added to ${plan.name}`);
+    notify(`${formatNgn(amount)} added to ${plan.name}`);
     return { ok: true };
-  }, [notify, state.plans, state.walletNgn]);
+  }, [notify, state.plans, state.walletNgnKobo]);
 
   const planWithdraw = useCallback<Store['planWithdraw']>((id, amount) => {
     const plan = state.plans.find((p) => p.id === id);
@@ -388,27 +366,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (plan.kind === 'fixed') {
       return { ok: false, error: 'This fixed plan is locked until its maturity date. Early access rules apply.' };
     }
-    if (!Number.isFinite(amount) || amount < 100) return { ok: false, error: 'Enter at least ₦100.' };
-    if (amount > plan.balance) return { ok: false, error: 'Amount is more than this plan balance.' };
+    if (!Number.isInteger(amount) || amount < MIN_DEPOSIT) return { ok: false, error: 'Enter at least ₦100.' };
+    if (amount > plan.balanceKobo) return { ok: false, error: 'Amount is more than this plan balance.' };
+    const txn: TxnDto = {
+      id: `tx-${Date.now()}`,
+      title: plan.name,
+      meta: 'Savings withdrawal · to wallet',
+      amountKobo: amount,
+      date: new Date().toISOString(),
+      status: 'Completed',
+      type: 'savings',
+      ref: makeRef('SAV'),
+    };
     setState((s) => ({
       ...s,
-      walletNgn: s.walletNgn + amount,
-      plans: s.plans.map((p) => (p.id === id ? { ...p, balance: p.balance - amount } : p)),
-      txns: [
-        {
-          id: `tx-${Date.now()}`,
-          title: plan.name,
-          meta: 'Savings withdrawal · to wallet',
-          amount,
-          date: new Date().toISOString(),
-          status: 'Completed',
-          type: 'savings',
-          ref: makeRef('SAV'),
-        },
-        ...s.txns,
-      ],
+      walletNgnKobo: add(s.walletNgnKobo, amount),
+      plans: s.plans.map((p) => (p.id === id ? { ...p, balanceKobo: sub(p.balanceKobo, amount) } : p)),
+      txns: pushTxn(txn)(s),
     }));
-    notify(`₦${amount.toLocaleString('en-NG')} moved from ${plan.name} to your wallet`);
+    notify(`${formatNgn(amount)} moved from ${plan.name} to your wallet`);
     return { ok: true };
   }, [notify, state.plans]);
 
@@ -416,18 +392,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const stock = stocks.find((s) => s.symbol === symbol);
     if (!stock) return { ok: false, error: 'Unknown instrument.' };
     if (!Number.isInteger(units) || units < 1) return { ok: false, error: 'Enter a whole number of units.' };
-    const gross = units * stock.price;
-    const fee = gross * 0.015;
-    const total = gross + fee;
+    const isUsd = stock.currency === 'USD';
+    const gross = toMinor(units * stock.price);
+    const fee = pctOf(gross, 1.5);
+    const cost = add(gross, fee);
+    const proceeds = sub(gross, fee);
     const holding = state.holdings.find((h) => h.symbol === symbol);
+    const priceText = isUsd ? `$${stock.price.toLocaleString('en-US')}` : formatNgn(toMinor(stock.price));
 
     if (side === 'buy') {
-      if (stock.currency === 'NGN' && total > state.walletNgn) {
-        return { ok: false, error: 'Your naira wallet does not have enough for this order.' };
+      const wallet = isUsd ? state.walletUsdCents : state.walletNgnKobo;
+      if (cost > wallet) {
+        return {
+          ok: false,
+          error: isUsd
+            ? 'Your USD wallet does not cover this order plus fees.'
+            : 'Your naira wallet does not cover this order plus fees.',
+        };
       }
-      if (stock.currency === 'USD' && total > state.walletUsd) {
-        return { ok: false, error: 'Your USD wallet does not have enough for this order.' };
-      }
+      const txn: TxnDto = {
+        id: `tx-${Date.now()}`,
+        title: `Bought ${units} ${symbol}`,
+        meta: `Invest · ${stock.exchange} · fee ${formatNgn(fee)}${isUsd ? ' · NGN equivalent' : ''}`,
+        amountKobo: neg(isUsd ? times(DEMO_NGN_PER_USD, cost) : cost),
+        date: new Date().toISOString(),
+        status: 'Completed',
+        type: 'invest',
+        ref: makeRef('INV'),
+      };
       setState((s) => {
         const existing = s.holdings.find((h) => h.symbol === symbol);
         const nextHoldings = existing
@@ -436,74 +428,65 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 ? {
                     ...h,
                     units: h.units + units,
-                    avgCost: (h.avgCost * h.units + gross) / (h.units + units),
-                    price: stock.price,
+                    avgCostMinor: roundMinor((h.avgCostMinor * h.units + gross) / (h.units + units)),
+                    priceMinor: toMinor(stock.price),
                     change: stock.change,
                   }
                 : h,
             )
-          : [...s.holdings, { symbol, units, avgCost: stock.price, price: stock.price, change: stock.change }];
+          : [
+              ...s.holdings,
+              {
+                symbol,
+                units,
+                currency: isUsd ? ('USD' as const) : ('NGN' as const),
+                avgCostMinor: toMinor(stock.price),
+                priceMinor: toMinor(stock.price),
+                change: stock.change,
+              },
+            ];
         return {
           ...s,
           holdings: nextHoldings,
-          walletNgn: stock.currency === 'NGN' ? s.walletNgn - total : s.walletNgn,
-          walletUsd: stock.currency === 'USD' ? Math.max(0, s.walletUsd - total) : s.walletUsd,
-          investmentsNgn: stock.currency === 'NGN' ? s.investmentsNgn + gross : s.investmentsNgn,
-          investmentsUsd: stock.currency === 'USD' ? s.investmentsUsd + gross : s.investmentsUsd,
-          txns: [
-            {
-              id: `tx-${Date.now()}`,
-              title: `Bought ${units} ${symbol}`,
-              meta: `Invest · ${stock.exchange} · fee ${stock.currency === 'USD' ? '$' : '₦'}${fee.toLocaleString('en-US', { maximumFractionDigits: 0 })}${stock.currency === 'USD' ? ' · NGN equivalent' : ''}`,
-              amount: -Math.round(total * (stock.currency === 'USD' ? USD_NGN : 1)),
-              date: new Date().toISOString(),
-              status: 'Completed',
-              type: 'invest',
-              ref: makeRef('INV'),
-            },
-            ...s.txns,
-          ],
+          walletNgnKobo: isUsd ? s.walletNgnKobo : sub(s.walletNgnKobo, cost),
+          walletUsdCents: isUsd ? sub(s.walletUsdCents, cost) : s.walletUsdCents,
+          txns: pushTxn(txn)(s),
         };
       });
-      notify(`${units} ${symbol} bought at ${stock.currency === 'NGN' ? '₦' : '$'}${stock.price.toLocaleString('en-US')}`);
+      notify(`${units} ${symbol} bought at ${priceText}`);
       return { ok: true };
     }
 
     if (!holding || holding.units < units) {
       return { ok: false, error: `You only hold ${holding?.units ?? 0} unit${holding?.units === 1 ? '' : 's'} of ${symbol}.` };
     }
-    const proceeds = gross - fee;
+    const txn: TxnDto = {
+      id: `tx-${Date.now()}`,
+      title: `Sold ${units} ${symbol}`,
+      meta: `Invest · ${stock.exchange} · settled to ${stock.currency} wallet${isUsd ? ' · NGN equivalent' : ''}`,
+      amountKobo: isUsd ? times(DEMO_NGN_PER_USD, proceeds) : proceeds,
+      date: new Date().toISOString(),
+      status: 'Completed',
+      type: 'invest',
+      ref: makeRef('INV'),
+    };
     setState((s) => {
       const existing = s.holdings.find((h) => h.symbol === symbol)!;
       const nextHoldings =
         existing.units === units
           ? s.holdings.filter((h) => h.symbol !== symbol)
-          : s.holdings.map((h) => (h.symbol === symbol ? { ...h, units: h.units - units, price: stock.price } : h));
+          : s.holdings.map((h) => (h.symbol === symbol ? { ...h, units: h.units - units, priceMinor: toMinor(stock.price) } : h));
       return {
         ...s,
         holdings: nextHoldings,
-        walletNgn: stock.currency === 'NGN' ? s.walletNgn + proceeds : s.walletNgn,
-        walletUsd: stock.currency === 'USD' ? s.walletUsd + proceeds : s.walletUsd,
-        investmentsNgn: stock.currency === 'NGN' ? Math.max(0, s.investmentsNgn - gross) : s.investmentsNgn,
-        investmentsUsd: stock.currency === 'USD' ? Math.max(0, s.investmentsUsd - gross) : s.investmentsUsd,
-        txns: [
-          {
-            id: `tx-${Date.now()}`,
-            title: `Sold ${units} ${symbol}`,
-            meta: `Invest · ${stock.exchange} · settled to ${stock.currency} wallet${stock.currency === 'USD' ? ' · NGN equivalent' : ''}`,
-            amount: Math.round(proceeds * (stock.currency === 'USD' ? USD_NGN : 1)),
-            date: new Date().toISOString(),
-            status: 'Completed',
-            type: 'invest',
-            ref: makeRef('INV'),
-          },
-          ...s.txns,
-        ],
+        walletNgnKobo: isUsd ? s.walletNgnKobo : add(s.walletNgnKobo, proceeds),
+        walletUsdCents: isUsd ? add(s.walletUsdCents, proceeds) : s.walletUsdCents,
+        txns: pushTxn(txn)(s),
       };
     });
     notify(`${units} ${symbol} sold`);
     return { ok: true };
-  }, [notify, state.holdings, state.walletNgn, state.walletUsd]);
+  }, [notify, state.holdings, state.walletNgnKobo, state.walletUsdCents]);
 
   const markAllRead = useCallback(() => {
     setState((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, unread: false })) }));
@@ -513,9 +496,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, [key]: !s[key] }));
   }, []);
 
+  const toggleBalance = useCallback(() => {
+    setState((s) => ({ ...s, hideBalance: !s.hideBalance }));
+  }, []);
+
   const reset = useCallback(() => {
     setState((s) => ({ ...seed(), darkMode: s.darkMode }));
     notify('Demo account reset to its starting balances');
+    void fetchRemoteState().then((remote) => {
+      if (remote) setState((current) => ({ ...remote, profile: { ...remote.profile, bank: user.bank }, ...prefsOf(current) }));
+    });
   }, [notify]);
 
   const startFresh = useCallback<Store['startFresh']>((input) => {
@@ -526,20 +516,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const signInDemo = useCallback(() => {
     setState((s) => ({ ...seed(), darkMode: s.darkMode }));
     notify('Signed in to the demo account');
+    void fetchRemoteState().then((remote) => {
+      if (remote) setState((current) => ({ ...remote, profile: { ...remote.profile, bank: user.bank }, ...prefsOf(current) }));
+    });
   }, [notify]);
 
-  const toggleBalance = useCallback(() => {
-    setState((s) => ({ ...s, hideBalance: !s.hideBalance }));
-  }, []);
-
-  const savings = useMemo(() => state.plans.reduce((sum, p) => sum + p.balance, 0), [state.plans]);
-  const investmentValue = useMemo(
-    () =>
-      state.holdings.reduce((sum, h) => {
-        const stock = stocks.find((s) => s.symbol === h.symbol);
-        if (!stock || stock.currency === 'USD') return sum;
-        return sum + h.units * stock.price;
-      }, 0),
+  const savings = useMemo(() => sum(state.plans.map((p) => p.balanceKobo)), [state.plans]);
+  const investNgn = useMemo(
+    () => sum(state.holdings.filter((h) => h.currency === 'NGN').map((h) => times(h.units, h.priceMinor))),
+    [state.holdings],
+  );
+  const investUsd = useMemo(
+    () => sum(state.holdings.filter((h) => h.currency === 'USD').map((h) => times(h.units, h.priceMinor))),
     [state.holdings],
   );
 
@@ -547,9 +535,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       user: state.profile,
-      total: state.walletNgn + savings + state.investmentsNgn,
+      total: add(state.walletNgnKobo, add(savings, investNgn)),
       savings,
-      investmentValue,
+      investNgn,
+      investUsd,
       toast,
       notify,
       addMoney,
@@ -566,7 +555,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       startFresh,
       signInDemo,
     }),
-    [state, savings, investmentValue, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, toggleSetting, toggleBalance, reset, startFresh, signInDemo],
+    [state, savings, investNgn, investUsd, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, toggleSetting, toggleBalance, reset, startFresh, signInDemo],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
@@ -577,5 +566,3 @@ export function useStore() {
   if (!ctx) throw new Error('useStore must be used inside StoreProvider');
   return ctx;
 }
-
-export const monthLabel = (date: string) => monthName(new Date(date));
