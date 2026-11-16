@@ -64,7 +64,7 @@ Each user is a phone number with its own ledger owner. Signing up provisions a z
 - `POST /api/auth/logout` with `Authorization: Bearer <token>` revokes the session.
 - `GET /api/state` and the write endpoints accept the bearer token; without one they fall back to the shared demo account so the public demo still works.
 
-No SMS provider is wired yet, so `request-code` returns the code as `devCode` and the apps show it on the OTP screen. `+234 803 555 0147` maps to the seeded demo owner; any other number gets its own account. Sessions live in `sessions` (30 days) and the token is kept in `localStorage` as `apex.session.v1`.
+No SMS provider is wired yet, so `request-code` returns the code as `devCode` and the apps show it on the OTP screen. Set `AUTH_SECRET` in the API environment to pepper the stored code hashes; without it a development default is used. `+234 803 555 0147` maps to the seeded demo owner; any other number gets its own account. Sessions live in `sessions` (30 days) and the token is kept in `localStorage` as `apex.session.v1`.
 
 ## Build
 
