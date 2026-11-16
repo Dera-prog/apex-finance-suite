@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { add, compactNgn, formatNgn, formatUsd, neg, parseNgn, pctOf, roundMinor, sub, sum, times, toMinor } from './money.ts';
-import type { Minor } from './money.ts';
+import { add, compactNgn, formatNgn, formatUsd, neg, parseNgn, pctOf, roundMinor, sub, sum, times, toMinor } from './money.js';
+import type { Minor } from './money.js';
 
 const kobo = (value: number): Minor => value as Minor;
 

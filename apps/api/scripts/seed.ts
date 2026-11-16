@@ -1,6 +1,6 @@
 import pg from 'pg';
-import { demoMobileState } from '../../../packages/shared/demo-state.ts';
-import { scriptDatabaseUrl } from './database-url.ts';
+import { demoMobileState } from '../../../packages/shared/demo-state.js';
+import { scriptDatabaseUrl } from './database-url.js';
 
 const { Client } = pg;
 

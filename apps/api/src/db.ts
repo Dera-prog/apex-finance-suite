@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { DATABASE_URL, LEDGER_ENABLED } from './env.ts';
+import { DATABASE_URL, LEDGER_ENABLED } from './env.js';
 
 const { Pool } = pg;
 

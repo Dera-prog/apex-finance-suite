@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { handleRequest } from '../src/app.ts';
+import { handleRequest } from '../src/app.js';
 
 /** Served at /api/health. */
 export default function health(req: IncomingMessage, res: ServerResponse) {

@@ -1,6 +1,6 @@
-import { banks, holdings, initialPlans, notifications, stocks, transactions, user, wallet } from './data.ts';
-import type { HoldingDto, MobileStateResponse, PlanDto, TxnDto } from './api.ts';
-import { toMinor } from './money.ts';
+import { banks, holdings, initialPlans, notifications, stocks, transactions, user, wallet } from './data.js';
+import type { HoldingDto, MobileStateResponse, PlanDto, TxnDto } from './api.js';
+import { toMinor } from './money.js';
 
 const currencyOf = (symbol: string): 'NGN' | 'USD' =>
   stocks.find((stock) => stock.symbol === symbol)?.currency === 'USD' ? 'USD' : 'NGN';

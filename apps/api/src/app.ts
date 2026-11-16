@@ -1,9 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { API } from '../../../packages/shared/api.ts';
-import type { HealthResponse } from '../../../packages/shared/api.ts';
-import { demoMobileState } from '../../../packages/shared/demo-state.ts';
-import { readLedgerState } from './ledger.ts';
-import { sendJson } from './respond.ts';
+import { API } from '../../../packages/shared/api.js';
+import type { HealthResponse } from '../../../packages/shared/api.js';
+import { demoMobileState } from '../../../packages/shared/demo-state.js';
+import { readLedgerState } from './ledger.js';
+import { sendJson } from './respond.js';
 
 type Method = 'GET' | 'POST';
 type Handler = (req: IncomingMessage, res: ServerResponse) => void | Promise<void>;

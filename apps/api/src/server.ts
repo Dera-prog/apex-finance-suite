@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { handleRequest } from './app.ts';
+import { handleRequest } from './app.js';
 
 const PORT = Number(process.env.PORT ?? 4000);
 const HOST = process.env.HOST ?? '127.0.0.1';

@@ -1,9 +1,9 @@
-import { banks, notifications, stocks } from '../../../packages/shared/data.ts';
-import type { HoldingDto, MobileStateResponse, PlanDto, Profile, TxnDto } from '../../../packages/shared/api.ts';
-import { roundMinor, toMinor } from '../../../packages/shared/money.ts';
-import type { Minor } from '../../../packages/shared/money.ts';
-import { db } from './db.ts';
-import { LEDGER_OWNER } from './env.ts';
+import { banks, notifications, stocks } from '../../../packages/shared/data.js';
+import type { HoldingDto, MobileStateResponse, PlanDto, Profile, TxnDto } from '../../../packages/shared/api.js';
+import { roundMinor, toMinor } from '../../../packages/shared/money.js';
+import type { Minor } from '../../../packages/shared/money.js';
+import { db } from './db.js';
+import { LEDGER_OWNER } from './env.js';
 
 type BalanceRow = { code: string; balance_minor: string };
 type PlanRow = {

@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { scriptDatabaseUrl } from './database-url.ts';
+import { scriptDatabaseUrl } from './database-url.js';
 
 const { Client } = pg;
 const migrationsDir = resolve(dirname(fileURLToPath(import.meta.url)), '../migrations');

@@ -1,5 +1,5 @@
-import type { Bank, Notification, Plan, Txn } from './data.ts';
-import type { Minor } from './money.ts';
+import type { Bank, Notification, Plan, Txn } from './data.js';
+import type { Minor } from './money.js';
 
 export const API = {
   health: '/api/health',

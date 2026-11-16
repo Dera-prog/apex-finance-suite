@@ -6,7 +6,6 @@
     "moduleResolution": "nodenext",
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
     "skipLibCheck": true,

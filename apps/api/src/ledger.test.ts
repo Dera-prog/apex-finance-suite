@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import pg from 'pg';
-import { demoMobileState } from '../../../packages/shared/demo-state.ts';
-import { localDatabaseUrl } from '../scripts/database-url.ts';
+import { demoMobileState } from '../../../packages/shared/demo-state.js';
+import { localDatabaseUrl } from '../scripts/database-url.js';
 
 process.env.DATABASE_URL ??= localDatabaseUrl;
 
-const { readLedgerState } = await import('./ledger.ts');
+const { readLedgerState } = await import('./ledger.js');
 
 const { Client } = pg;
 const owner = 'demo';

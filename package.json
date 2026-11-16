@@ -11,7 +11,7 @@
     "dev:desktop": "npm run dev -w @apex/desktop",
     "dev:mobile": "npm run dev -w @apex/mobile",
     "dev:api": "npm run dev -w @apex/api",
-    "test:money": "node --test --disable-warning=ExperimentalWarning packages/shared/money.test.ts",
+    "test:money": "node --import tsx --test packages/shared/money.test.ts",
     "build": "npm run build -w @apex/case-study && npm run build -w @apex/website && npm run build -w @apex/desktop && npm run build -w @apex/mobile",
     "build:case": "npm run build -w @apex/case-study",
     "build:site": "npm run build -w @apex/website",
