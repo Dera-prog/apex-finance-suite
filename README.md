@@ -51,6 +51,8 @@ npm run -w @apex/api db:seed      # post the demo account from packages/shared
 npm run -w @apex/api test         # ledger invariants against the running database
 ```
 
+The deployed API reads `DATABASE_URL` when it is set and returns the packaged seed otherwise; `GET /api/health` reports which one answered as `storage`.
+
 ## Build
 
 ```bash

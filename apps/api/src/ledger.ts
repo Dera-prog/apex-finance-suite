@@ -60,6 +60,20 @@ function toProfile(row: ProfileRow): Profile {
 }
 
 /** Reads the whole product state from the ledger. Returns null when the database is unavailable. */
+/** Whether /api/state can actually read the ledger right now, as opposed to the packaged seed. */
+export async function ledgerConnected(): Promise<boolean> {
+  const pool = db();
+  if (!pool) return false;
+
+  try {
+    await pool.query('select 1');
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+}
+
 export async function readLedgerState(owner = LEDGER_OWNER): Promise<MobileStateResponse | null> {
   const pool = db();
   if (!pool) return null;

@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { API } from '../../../packages/shared/api.js';
 import type { HealthResponse } from '../../../packages/shared/api.js';
 import { demoMobileState } from '../../../packages/shared/demo-state.js';
-import { readLedgerState } from './ledger.js';
+import { ledgerConnected, readLedgerState } from './ledger.js';
 import { sendJson } from './respond.js';
 
 type Method = 'GET' | 'POST';
@@ -10,11 +10,12 @@ type Handler = (req: IncomingMessage, res: ServerResponse) => void | Promise<voi
 
 const startedAt = Date.now();
 
-function health(_req: IncomingMessage, res: ServerResponse) {
+async function health(_req: IncomingMessage, res: ServerResponse) {
   const body: HealthResponse = {
     ok: true,
     service: 'apex-api',
     uptime: Math.round((Date.now() - startedAt) / 1000),
+    storage: (await ledgerConnected()) ? 'postgres' : 'demo-seed',
   };
   sendJson(res, 200, body);
 }

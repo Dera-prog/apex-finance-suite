@@ -54,5 +54,10 @@ export type MobileStateResponse = {
   banks: Bank[];
 };
 
-export type HealthResponse = { ok: boolean; service: string; uptime: number };
+export type HealthResponse = {
+  ok: boolean;
+  service: string;
+  uptime: number;
+  storage: 'postgres' | 'demo-seed';
+};
 export type ErrorResponse = { error: string };
