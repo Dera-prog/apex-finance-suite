@@ -13,7 +13,7 @@
     "db:migrate": "node --import tsx scripts/migrate.ts",
     "db:seed": "node --import tsx scripts/seed.ts",
     "db:reset": "npm run db:migrate && npm run db:seed",
-    "test": "node --import tsx --test src/ledger.test.ts"
+    "test": "node --import tsx --test src/*.test.ts"
   },
   "dependencies": {
     "pg": "^8.23.1"

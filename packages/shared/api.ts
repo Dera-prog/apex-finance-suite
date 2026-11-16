@@ -4,7 +4,11 @@ import type { Minor } from './money.js';
 export const API = {
   health: '/api/health',
   demoState: '/api/state',
+  deposit: '/api/deposit',
+  trade: '/api/trade',
 } as const;
+
+export const planFundPath = (planId: string) => `/api/plans/${encodeURIComponent(planId)}/fund`;
 
 export type AccountKind = 'seed' | 'new';
 
@@ -60,4 +64,8 @@ export type HealthResponse = {
   uptime: number;
   storage: 'postgres' | 'demo-seed';
 };
-export type ErrorResponse = { error: string };
+export type ErrorResponse = { error: string; message?: string };
+
+export type DepositRequest = { amountMinor: number; source?: string; reference?: string };
+export type TradeRequest = { symbol: string; units: number; side: 'buy' | 'sell'; reference?: string };
+export type PlanFundRequest = { amountMinor: number; reference?: string };
