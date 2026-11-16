@@ -171,7 +171,7 @@ export async function trade(input: TradeRequest, owner = LEDGER_OWNER, client?: 
   const wallet = `wallet:${currency}`;
   const gross = toMinor(units * stock.price);
   const fee = pctOf(gross, TRADE_FEE_PERCENT);
-  const feeText = currency === 'NGN' ? formatNgn(fee) : formatUsd(fee);
+  const feeText = currency === 'NGN' ? formatNgn(fee, 2) : formatUsd(fee);
 
   return withLedger(client, async (query) => {
     const walletId = await accountId(query, owner, wallet);

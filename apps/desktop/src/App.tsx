@@ -268,6 +268,7 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
   const [recipient, setRecipient] = useState('Chinedu Okafor');
   const [tag, setTag] = useState('@chinedu');
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const value = parseNgn(amount) ?? toMinor(0);
   const bank = store.banks.find((b) => b.id === bankId) ?? store.banks[0];
@@ -278,16 +279,18 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
     transfer: { title: 'Send money', sub: 'Instant Apex-to-Apex transfer. No fee in this demo.' },
   }[mode];
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    setBusy(true);
     const result =
       mode === 'add'
-        ? store.addMoney(value, bank.name)
+        ? await store.addMoney(value, bank.name)
         : mode === 'withdraw'
           ? store.withdraw(value, bank.name)
           : store.transfer(value, `${recipient}${tag ? ` (${tag})` : ''}`);
     if (!result.ok) {
+      setBusy(false);
       setError(result.error ?? 'Something went wrong.');
       return;
     }
@@ -351,7 +354,7 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
           </div>
         </div>
         <ErrorLine message={error} />
-        <button type="submit" className="btn btn-primary btn-block">
+        <button type="submit" className="btn btn-primary btn-block" disabled={busy} aria-busy={busy}>
           {mode === 'add' ? 'Add money' : mode === 'withdraw' ? 'Confirm withdrawal' : 'Send money'}
           <ArrowRight size={15} />
         </button>
@@ -507,14 +510,17 @@ function PlanMoneyModal({
   const store = useStore();
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const value = parseNgn(amount) ?? toMinor(0);
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    setBusy(true);
     const result =
-      mode === 'deposit' ? store.planDeposit(plan.id, value) : store.planWithdraw(plan.id, value);
+      mode === 'deposit' ? await store.planDeposit(plan.id, value) : store.planWithdraw(plan.id, value);
     if (!result.ok) {
+      setBusy(false);
       setError(result.error ?? 'Could not complete this movement.');
       return;
     }
@@ -561,7 +567,8 @@ function PlanMoneyModal({
         <button
           type="submit"
           className="btn btn-primary btn-block"
-          disabled={mode === 'withdraw' && plan.kind === 'fixed'}
+          disabled={(mode === 'withdraw' && plan.kind === 'fixed') || busy}
+          aria-busy={busy}
           style={mode === 'withdraw' && plan.kind === 'fixed' ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
         >
           {mode === 'deposit' ? 'Confirm top-up' : 'Move to wallet'} <ArrowRight size={15} />
@@ -587,6 +594,7 @@ function TradeModal({
   const [side, setSide] = useState(initialSide);
   const [units, setUnits] = useState('10');
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const holding = store.holdings.find((h) => h.symbol === symbol);
   const unitCount = Number(units || 0);
   const gross = toMinor(unitCount * stock.price);
@@ -595,11 +603,13 @@ function TradeModal({
   const cur = stock.currency === 'USD' ? '$' : '₦';
   const fmt = (v: Minor) => (stock.currency === 'USD' ? formatUsd(v) : formatNgn(v, 2));
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    const result = store.trade(symbol, unitCount, side);
+    setBusy(true);
+    const result = await store.trade(symbol, unitCount, side);
     if (!result.ok) {
+      setBusy(false);
       setError(result.error ?? 'Order could not be placed.');
       return;
     }
@@ -665,7 +675,7 @@ function TradeModal({
           </div>
         </div>
         <ErrorLine message={error} />
-        <button type="submit" className="btn btn-primary btn-block">
+        <button type="submit" className="btn btn-primary btn-block" disabled={busy} aria-busy={busy}>
           {side === 'buy' ? `Buy ${unitCount || 0} units` : `Sell ${unitCount || 0} units`}
           <ArrowRight size={15} />
         </button>

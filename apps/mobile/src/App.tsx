@@ -2108,6 +2108,7 @@ function OrderSheet({
   const stock = stockFor(symbol);
   const [units, setUnits] = useState(1);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   if (!stock) return null;
   const holding = s.holdings.find((h) => h.symbol === symbol);
   const gross = toMinor(units * stock.price);
@@ -2117,15 +2118,17 @@ function OrderSheet({
   const c = (value: Minor) => minorText(stock.currency, value);
   const maxUnits = holding?.units ?? 0;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result: MoneyResult = s.trade(symbol, units, side);
+    setBusy(true);
+    const result: MoneyResult = await s.trade(symbol, units, side);
     if (!result.ok) {
+      setBusy(false);
       setError(result.error ?? 'Order could not be placed.');
       return;
     }
-    close();
     if (result.txn) open({ type: 'receipt', txn: result.txn });
+    else close();
   };
 
   return (
@@ -2176,7 +2179,7 @@ function OrderSheet({
           </div>
         </div>
         {error && <p className="form-error">{error}</p>}
-        <button className="btn btn-primary btn-block" type="submit">
+        <button className="btn btn-primary btn-block" type="submit" disabled={busy} aria-busy={busy}>
           {side === 'buy' ? 'Confirm purchase' : 'Confirm sale'}
         </button>
         <p className="foot-note">Simulated order. No real shares are bought or sold.</p>
@@ -2202,6 +2205,7 @@ function MoneySheet({
   const [source, setSource] = useState(s.banks.find((b) => b.primary)?.name ?? s.banks[0]?.name ?? 'GTBank');
   const [recipient, setRecipient] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const value = parseNgn(amount) ?? toMinor(0);
 
   const config: Record<MoneyMode, { title: string; subtitle: string; cta: string; available: Minor; prefix: string }> = {
@@ -2225,22 +2229,24 @@ function MoneySheet({
   };
   const cfg = config[mode];
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setBusy(true);
     let result: MoneyResult;
-    if (mode === 'add') result = s.addMoney(value, source);
+    if (mode === 'add') result = await s.addMoney(value, source);
     else if (mode === 'withdraw') result = s.withdraw(value, source);
     else if (mode === 'transfer') result = s.transfer(value, recipient);
-    else if (mode === 'plan-add' && plan) result = s.planDeposit(plan.id, value);
+    else if (mode === 'plan-add' && plan) result = await s.planDeposit(plan.id, value);
     else if (mode === 'plan-withdraw' && plan) result = s.planWithdraw(plan.id, value);
     else result = { ok: false, error: 'Plan not found.' };
 
     if (!result.ok) {
+      setBusy(false);
       setError(result.error ?? 'That did not work.');
       return;
     }
-    close();
     if (result.txn) open({ type: 'receipt', txn: result.txn });
+    else close();
   };
 
   return (
@@ -2311,7 +2317,7 @@ function MoneySheet({
         </div>
 
         {error && <p className="form-error">{error}</p>}
-        <button className="btn btn-primary btn-block" type="submit" disabled={value <= 0}>
+        <button className="btn btn-primary btn-block" type="submit" disabled={value <= 0 || busy} aria-busy={busy}>
           {cfg.cta}
         </button>
         <p className="foot-note">Demo only. No real funds move and no bank is contacted.</p>
@@ -2347,8 +2353,8 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
       setError(result.error ?? 'Could not create the plan.');
       return;
     }
-    close();
     if (result.txn) open({ type: 'receipt', txn: result.txn });
+    else close();
   };
 
   return (
