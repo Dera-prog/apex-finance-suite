@@ -1,0 +1,41 @@
+name: Database backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # daily at 02:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Dump the ledger
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL repository secret is not set" >&2
+            exit 1
+          fi
+          set -o pipefail
+          stamp=$(date -u +%Y-%m-%d)
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges --format=custom --file="apex-${stamp}.dump"
+          # A real dump is not empty; fail loudly rather than keep a bad artifact.
+          test -s "apex-${stamp}.dump"
+          ls -lh apex-*.dump
+
+      - name: Upload the dump
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-ledger-${{ github.run_id }}
+          path: apex-*.dump
+          retention-days: 30
+          if-no-files-found: error
