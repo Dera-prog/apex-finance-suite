@@ -13,6 +13,8 @@ import { demoMobileState } from '../../../packages/shared/demo-state.js';
 import { AuthError, ownerForToken, requestCode, signOut, verifyCode } from './auth.js';
 import { LEDGER_OWNER } from './env.js';
 import { ledgerConnected, readLedgerState } from './ledger.js';
+import { enforceRateLimit, RateLimitError } from './rate-limit.js';
+import { SmsError } from './sms.js';
 import { deposit, fundPlan, LedgerError, trade } from './writes.js';
 import { sendJson } from './respond.js';
 
@@ -50,6 +52,23 @@ const bearer = (req: IncomingMessage): string | null => {
   return match[1];
 };
 
+const clientIp = (req: IncomingMessage): string => {
+  const forwarded = req.headers['x-forwarded-for'];
+  const first = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  return first?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+};
+
+/** Throttles a caller before the handler does any work. Limits are per instance-shared window. */
+async function limitIp(req: IncomingMessage, bucket: string, limit: number, windowSeconds: number) {
+  await enforceRateLimit({ bucket, subject: `ip:${clientIp(req)}`, limit, windowSeconds });
+}
+
+/** Money moves are limited per account and per caller, so one client cannot drain a shared IP budget. */
+async function limitWrite(req: IncomingMessage, owner: string) {
+  await enforceRateLimit({ bucket: 'write', subject: `owner:${owner}`, limit: 30, windowSeconds: 60 });
+  await limitIp(req, 'write', 60, 60);
+}
+
 /** The signed-in owner, or null for the public demo when no token was sent. */
 async function ownerFrom(req: IncomingMessage): Promise<string | null> {
   const token = bearer(req);
@@ -60,6 +79,7 @@ async function ownerFrom(req: IncomingMessage): Promise<string | null> {
 }
 
 async function state(req: IncomingMessage, res: ServerResponse) {
+  await limitIp(req, 'state', 300, 60);
   const owner = await ownerFrom(req);
   const fromLedger = await readLedgerState(owner ?? undefined);
   sendJson(res, 200, fromLedger ?? demoMobileState());
@@ -95,6 +115,7 @@ async function respondWithState(res: ServerResponse, owner = LEDGER_OWNER) {
 async function depositHandler(req: IncomingMessage, res: ServerResponse) {
   const body = await readBody(req);
   const owner = (await ownerFrom(req)) ?? LEDGER_OWNER;
+  await limitWrite(req, owner);
   await deposit(body as unknown as DepositRequest, owner);
   await respondWithState(res, owner);
 }
@@ -102,6 +123,7 @@ async function depositHandler(req: IncomingMessage, res: ServerResponse) {
 async function tradeHandler(req: IncomingMessage, res: ServerResponse) {
   const body = await readBody(req);
   const owner = (await ownerFrom(req)) ?? LEDGER_OWNER;
+  await limitWrite(req, owner);
   await trade(body as unknown as TradeRequest, owner);
   await respondWithState(res, owner);
 }
@@ -110,17 +132,20 @@ function fundPlanHandler(planId: string): Handler {
   return async (req, res) => {
     const body = await readBody(req);
     const owner = (await ownerFrom(req)) ?? LEDGER_OWNER;
+    await limitWrite(req, owner);
     await fundPlan(planId, body as unknown as PlanFundRequest, owner);
     await respondWithState(res, owner);
   };
 }
 
 async function requestCodeHandler(req: IncomingMessage, res: ServerResponse) {
+  await limitIp(req, 'code-request', 10, 600);
   const body = await readBody(req);
   sendJson(res, 200, await requestCode(body as unknown as RequestCodeRequest));
 }
 
 async function verifyCodeHandler(req: IncomingMessage, res: ServerResponse) {
+  await limitIp(req, 'code-verify', 40, 600);
   const body = await readBody(req);
   sendJson(res, 200, await verifyCode(body as unknown as VerifyCodeRequest));
 }
@@ -196,7 +221,13 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   try {
     await handler(req, res);
   } catch (error) {
-    if (error instanceof LedgerError || error instanceof HttpError || error instanceof AuthError) {
+    if (
+      error instanceof LedgerError ||
+      error instanceof HttpError ||
+      error instanceof AuthError ||
+      error instanceof RateLimitError ||
+      error instanceof SmsError
+    ) {
       sendJson(res, error.status, { error: error.code, message: error.message });
       return;
     }

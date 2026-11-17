@@ -11,7 +11,7 @@ A four-surface product suite for a fictional Nigerian savings-and-investing app:
 | Desktop app | [apex-finance-desktop.vercel.app](https://apex-finance-desktop.vercel.app) | Desktop web app demo |
 | Mobile PWA | [apex-finance-mobile.vercel.app](https://apex-finance-mobile.vercel.app) | Installable mobile app demo |
 
-The demo apps accept any phone number, use demo code `123456` for OTP, and any 4-digit PIN. No real money moves.
+The demo apps sign in with a real one-time code from the API; until an SMS gateway is configured the code is returned as `devCode` and shown on the OTP screen. No real money moves.
 
 ## Repository layout
 
@@ -64,7 +64,38 @@ Each user is a phone number with its own ledger owner. Signing up provisions a z
 - `POST /api/auth/logout` with `Authorization: Bearer <token>` revokes the session.
 - `GET /api/state` and the write endpoints accept the bearer token; without one they fall back to the shared demo account so the public demo still works.
 
-No SMS provider is wired yet, so `request-code` returns the code as `devCode` and the apps show it on the OTP screen. Set `AUTH_SECRET` in the API environment to pepper the stored code hashes; without it a development default is used. `+234 803 555 0147` maps to the seeded demo owner; any other number gets its own account. Sessions live in `sessions` (30 days) and the token is kept in `localStorage` as `apex.session.v1`.
+Set `AUTH_SECRET` in the API environment to pepper the stored code hashes; without it a development default is used. `+234 803 555 0147` maps to the seeded demo owner; any other number gets its own account. Sessions live in `sessions` (30 days) and the token is kept in `localStorage` as `apex.session.v1`.
+
+### SMS delivery
+
+Set `SMS_PROVIDER` to `termii`, `twilio` or `africastalking` and the matching credentials; the code is then sent by SMS and `devCode` is omitted from the response (the apps hide the demo hint and the "Use demo code" shortcut accordingly). Without a provider the API keeps returning `devCode` so the demo can be used.
+
+| Provider | Variables |
+| --- | --- |
+| Termii | `TERMII_API_KEY`, optional `TERMII_SENDER_ID` (default `N-Alert`) |
+| Twilio | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` |
+| Africa's Talking | `AT_USERNAME`, `AT_API_KEY`, optional `AT_SENDER_ID` |
+
+An SMS failure rolls the challenge back and answers `502 sms_failed`, so the attempt does not count against the per-phone limit.
+
+## Rate limits
+
+Limits are stored in Postgres (`rate_limits`), so they hold across serverless instances instead of per process.
+
+| Endpoint | Limit |
+| --- | --- |
+| `POST /api/auth/request-code` | 10 per IP per 10 minutes (plus the per-phone limit above) |
+| `POST /api/auth/verify-code` | 40 per IP per 10 minutes (plus five quick guesses per challenge) |
+| `GET /api/state` | 300 per IP per minute |
+| Deposits, trades and plan funding | 30 per account and 60 per IP per minute |
+
+Exceeding a limit answers `429 too_many_requests`. Old rows are pruned opportunistically.
+
+## Backups
+
+- **Point-in-time restore:** the production database is Neon. Its history retention is set in the Neon console (free plan keeps about six hours; paid plans up to 30 days) and can restore a branch to any moment inside that window.
+- **Daily logical backups:** `.github/workflows/db-backup.yml` runs `pg_dump` at 02:00 UTC (and on demand) and keeps a custom-format dump as a workflow artifact for 30 days. Add a repository secret named `DATABASE_URL` with the production connection string; without it the job fails instead of uploading an empty file.
+- **Restore:** `pg_restore --clean --no-owner --no-privileges --dbname "$DATABASE_URL" apex-YYYY-MM-DD.dump`. Run migrations afterwards (`npm run -w @apex/api db:migrate`) in case the dump predates them.
 
 ## Build
 

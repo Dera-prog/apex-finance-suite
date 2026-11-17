@@ -2298,6 +2298,7 @@ function AuthFlow({
   const [error, setError] = useState('');
   const [challengeId, setChallengeId] = useState<string | undefined>();
   const [devCode, setDevCode] = useState<string | undefined>();
+  const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const go = (next: Stage) => {
@@ -2334,6 +2335,7 @@ function AuthFlow({
     }
     setChallengeId(result.challengeId);
     setDevCode(result.devCode);
+    setOffline(Boolean(result.offline));
     go('otp');
   };
 
@@ -2518,7 +2520,11 @@ function AuthFlow({
           <h1>Enter your code</h1>
           <p className="auth-sub">
             Sent to +234 {phone}.{' '}
-            <b className="demo-hint">{devCode ? `Demo: the code is ${devCode}.` : 'Offline demo: any 6 digits work.'}</b>
+            {devCode ? (
+              <b className="demo-hint">Demo: the code is {devCode}.</b>
+            ) : offline ? (
+              <b className="demo-hint">Offline demo: any 6 digits work.</b>
+            ) : null}
           </p>
           <form className="auth-form" onSubmit={submitCode}>
             <label className="auth-field">
@@ -2537,9 +2543,11 @@ function AuthFlow({
             <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
               {busy ? 'Checking…' : 'Verify code'}
             </button>
-            <button className="auth-demo-link" type="button" onClick={() => setCode(devCode ?? '123456')}>
-              Use demo code {devCode ?? '123456'}
-            </button>
+            {devCode && (
+              <button className="auth-demo-link" type="button" onClick={() => setCode(devCode)}>
+                Use demo code {devCode}
+              </button>
+            )}
           </form>
         </div>
       </AuthLayout>

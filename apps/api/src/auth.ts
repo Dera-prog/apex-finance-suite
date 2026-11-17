@@ -9,6 +9,7 @@ import type {
 import { db } from './db.js';
 import { LEDGER_OWNER } from './env.js';
 import { readLedgerState } from './ledger.js';
+import { sendLoginCode, smsConfigured } from './sms.js';
 
 const CODE_TTL = '10 minutes';
 const SESSION_TTL = '30 days';
@@ -101,11 +102,15 @@ export async function requestCode(input: { phone?: unknown }): Promise<RequestCo
     );
     const challenge = rows[0]!;
 
+    // Sending inside the transaction means an SMS failure rolls the challenge back,
+    // so the user can retry without being counted against the per-phone limit.
+    if (smsConfigured) await sendLoginCode(phone, code);
+
     return {
       challengeId: challenge.id,
       expiresAt: challenge.expires_at.toISOString(),
-      // No SMS provider is configured yet, so the code travels back with the response.
-      devCode: code,
+      // Without a provider the code has to travel back with the response for the demo to work.
+      devCode: smsConfigured ? undefined : code,
     };
   });
 }

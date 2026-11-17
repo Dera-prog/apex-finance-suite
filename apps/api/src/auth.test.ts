@@ -7,6 +7,7 @@ import { localDatabaseUrl } from '../scripts/database-url.js';
 process.env.DATABASE_URL ??= localDatabaseUrl;
 
 const { AuthError, canonicalPhone, ownerForToken, requestCode, signOut, verifyCode } = await import('./auth.js');
+const { enforceRateLimit, RateLimitError } = await import('./rate-limit.js');
 const { readLedgerState } = await import('./ledger.js');
 const { deposit } = await import('./writes.js');
 
@@ -21,6 +22,7 @@ const connect = async () => {
 let phoneSeq = 0;
 const owners = new Set<string>();
 const phones: string[] = [];
+const rateSubjects: string[] = [];
 
 const freshPhone = () => {
   phoneSeq += 1;
@@ -55,6 +57,9 @@ after(async () => {
     }
     if (phones.length > 0) {
       await client.query('delete from auth_challenges where phone = any($1::text[])', [phones]);
+    }
+    for (const subject of rateSubjects) {
+      await client.query('delete from rate_limits where subject = $1', [subject]);
     }
   } finally {
     await client.end();
@@ -209,4 +214,30 @@ test('signing out revokes the token', async () => {
   assert.equal(await ownerForToken(auth.token), auth.owner);
   await signOut(auth.token);
   assert.equal(await ownerForToken(auth.token), null);
+});
+
+test('rate limits hold per subject and per window', async () => {
+  const subject = `ip:test-${Date.now()}`;
+  rateSubjects.push(subject);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await enforceRateLimit({ bucket: 'test', subject, limit: 3, windowSeconds: 60 });
+  }
+  await assert.rejects(
+    () => enforceRateLimit({ bucket: 'test', subject, limit: 3, windowSeconds: 60 }),
+    (error: unknown) => error instanceof RateLimitError && error.code === 'too_many_requests',
+  );
+
+  // A different subject has its own budget.
+  const other = `${subject}-other`;
+  rateSubjects.push(other);
+  await enforceRateLimit({ bucket: 'test', subject: other, limit: 3, windowSeconds: 60 });
+
+  // A window that has already elapsed does not count.
+  const client = await connect();
+  try {
+    await client.query("update rate_limits set occurred_at = now() - interval '2 hours' where subject = $1", [subject]);
+  } finally {
+    await client.end();
+  }
+  await enforceRateLimit({ bucket: 'test', subject, limit: 3, windowSeconds: 60 });
 });
