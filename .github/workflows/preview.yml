@@ -1,0 +1,107 @@
+name: Preview deployments
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  VERCEL_TEAM_ID: team_WWX9lchfnHlZWfOk3oOCcGdI
+  VERCEL_REPO_ID: "1442922129"
+
+jobs:
+  deploy:
+    name: Deploy the four surfaces
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Deploy previews and comment the URLs
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN is not set. Add it as a repository secret (see README, Preview deployments). Fork pull requests never receive it."
+            exit 1
+          fi
+
+          deploy() {
+            local label="$1" project="$2"
+            local payload id state url
+            payload=$(jq -nc \
+              --arg name "$project" \
+              --arg project "$project" \
+              --arg ref "$HEAD_REF" \
+              --arg sha "$HEAD_SHA" \
+              --argjson repoId "$VERCEL_REPO_ID" \
+              '{name: $name, project: $project, gitSource: {type: "github", repoId: $repoId, ref: $ref, sha: $sha}}')
+
+            local response
+            response=$(curl -sS -X POST \
+              "https://api.vercel.com/v13/deployments?teamId=$VERCEL_TEAM_ID&forceNew=1" \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              -H "content-type: application/json" \
+              -d "$payload")
+
+            id=$(echo "$response" | jq -r '.id // empty')
+            if [ -z "$id" ]; then
+              echo "::error::Could not create a deployment for $label: $(echo "$response" | head -c 300)"
+              ROWS=$ROWS$(printf '| %s | deployment failed | |\n' "$label")
+              return 1
+            fi
+
+            state=QUEUED
+            for _ in $(seq 1 100); do
+              sleep 5
+              response=$(curl -sS \
+                "https://api.vercel.com/v13/deployments/$id?teamId=$VERCEL_TEAM_ID" \
+                -H "Authorization: Bearer $VERCEL_TOKEN")
+              state=$(echo "$response" | jq -r '.readyState // .state')
+              case "$state" in
+                READY|ERROR|CANCELED) break ;;
+              esac
+            done
+
+            url=$(echo "$response" | jq -r '.url // empty')
+            if [ "$state" != "READY" ]; then
+              echo "::error::$label finished $state"
+              ROWS=$ROWS$(printf '| %s | %s | %s |\n' "$label" "${url:-n/a}" "$state")
+              return 1
+            fi
+            ROWS=$ROWS$(printf '| %s | https://%s | ready |\n' "$label" "$url")
+            return 0
+          }
+
+          ROWS=""
+          failed=0
+          deploy "Case study" apex-finance-case-study || failed=1
+          deploy "Website" apex-finance-website || failed=1
+          deploy "Desktop" apex-finance-desktop || failed=1
+          deploy "Mobile" apex-finance-mobile || failed=1
+
+          body=$(printf '%s\n' \
+            '<!-- apex-preview -->' \
+            '### Preview deployments' \
+            '' \
+            '| Surface | Preview | Status |' \
+            '| --- | --- | --- |' \
+            "$ROWS" \
+            '' \
+            "Built from \`${HEAD_SHA:0:7}\` on \`${HEAD_REF}\`. Preview builds call the production API and share its database, so write actions affect the demo account." \
+            'Updated on every push to this pull request.')
+
+          gh pr comment "$PR" --edit-last --body "$body" 2>/dev/null || gh pr comment "$PR" --body "$body"
+
+          exit "$failed"
