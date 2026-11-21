@@ -2,3 +2,6 @@
 export const localDatabaseUrl = `postgres://postgres:postgres@127.0.0.1:${process.env.PGPORT ?? 5433}/${process.env.PGDATABASE ?? 'apex'}`;
 
 export const scriptDatabaseUrl = (process.env.DATABASE_URL ?? '').trim() || localDatabaseUrl;
+
+/** The database the invariant tests clean up in; the compose stack points it at its own Postgres. */
+export const testDatabaseUrl = (process.env.TEST_DATABASE_URL ?? '').trim() || localDatabaseUrl;

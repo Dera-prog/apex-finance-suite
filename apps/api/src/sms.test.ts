@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import pg from 'pg';
-import { localDatabaseUrl } from '../scripts/database-url.js';
+import { testDatabaseUrl } from '../scripts/database-url.js';
 
-process.env.DATABASE_URL ??= localDatabaseUrl;
+process.env.DATABASE_URL ??= testDatabaseUrl;
 process.env.SMS_PROVIDER = 'termii';
 process.env.TERMII_API_KEY = 'test-key';
 
@@ -26,7 +26,7 @@ const { Client } = pg;
 const phones: string[] = [];
 
 after(async () => {
-  const client = new Client({ connectionString: localDatabaseUrl });
+  const client = new Client({ connectionString: testDatabaseUrl });
   await client.connect();
   try {
     if (phones.length > 0) {
@@ -65,7 +65,7 @@ test('a failed send rolls the challenge back and can be retried', async () => {
     (error: unknown) => error instanceof SmsError && error.code === 'sms_failed',
   );
 
-  const client = new Client({ connectionString: localDatabaseUrl });
+  const client = new Client({ connectionString: testDatabaseUrl });
   await client.connect();
   try {
     const { rows } = await client.query<{ count: string }>(

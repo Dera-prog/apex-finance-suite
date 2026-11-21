@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import pg from 'pg';
 import { demoMobileState } from '../../../packages/shared/demo-state.js';
-import { localDatabaseUrl } from '../scripts/database-url.js';
+import { testDatabaseUrl } from '../scripts/database-url.js';
 
-process.env.DATABASE_URL ??= localDatabaseUrl;
+process.env.DATABASE_URL ??= testDatabaseUrl;
 
 const { AuthError, canonicalPhone, ownerForToken, requestCode, signOut, verifyCode } = await import('./auth.js');
 const { enforceRateLimit, RateLimitError } = await import('./rate-limit.js');
@@ -14,7 +14,7 @@ const { deposit } = await import('./writes.js');
 const { Client } = pg;
 
 const connect = async () => {
-  const client = new Client({ connectionString: localDatabaseUrl });
+  const client = new Client({ connectionString: testDatabaseUrl });
   await client.connect();
   return client;
 };

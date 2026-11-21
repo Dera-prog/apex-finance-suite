@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import pg from 'pg';
 import { demoMobileState } from '../../../packages/shared/demo-state.js';
-import { localDatabaseUrl } from '../scripts/database-url.js';
+import { testDatabaseUrl } from '../scripts/database-url.js';
 
-process.env.DATABASE_URL ??= localDatabaseUrl;
+process.env.DATABASE_URL ??= testDatabaseUrl;
 
 const { readLedgerState } = await import('./ledger.js');
 
@@ -12,7 +12,7 @@ const { Client } = pg;
 const owner = 'demo';
 
 const connect = async () => {
-  const client = new Client({ connectionString: localDatabaseUrl });
+  const client = new Client({ connectionString: testDatabaseUrl });
   await client.connect();
   return client;
 };

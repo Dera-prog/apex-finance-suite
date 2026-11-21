@@ -12,6 +12,7 @@
     "db:down": "node --import tsx scripts/pg.ts stop",
     "db:migrate": "node --import tsx scripts/migrate.ts",
     "db:seed": "node --import tsx scripts/seed.ts",
+    "db:seed-if-empty": "node --import tsx scripts/seed-if-empty.ts",
     "db:reset": "npm run db:migrate && npm run db:seed",
     "test": "node --import tsx --test src/*.test.ts"
   },

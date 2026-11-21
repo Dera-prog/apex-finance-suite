@@ -3,10 +3,10 @@ import test from 'node:test';
 import pg from 'pg';
 import { stocks } from '../../../packages/shared/data.js';
 import { pctOf, toMinor } from '../../../packages/shared/money.js';
-import { localDatabaseUrl } from '../scripts/database-url.js';
+import { testDatabaseUrl } from '../scripts/database-url.js';
 import { deposit, fundPlan, LedgerError, trade } from './writes.js';
 
-process.env.DATABASE_URL ??= localDatabaseUrl;
+process.env.DATABASE_URL ??= testDatabaseUrl;
 
 const { Client } = pg;
 const owner = 'write-test';
@@ -51,7 +51,7 @@ const rejects = async (run: Promise<unknown>, code: string) => {
 
 /** Every test gets a funded owner of its own inside a transaction that never commits. */
 async function inLedger(run: (client: pg.Client) => Promise<void>) {
-  const client = new Client({ connectionString: localDatabaseUrl });
+  const client = new Client({ connectionString: testDatabaseUrl });
   await client.connect();
 
   try {

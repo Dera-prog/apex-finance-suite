@@ -49,6 +49,20 @@ npm run dev:api       # API on :4000 (serves the ledger, falls back to demo stat
 
 The two apps proxy `/api` to `http://127.0.0.1:4000` in development and to the deployed API in production, and fall back to an identical local demo state when the API is unreachable.
 
+### Docker
+
+The API and its Postgres also run as containers, which is the shortest path on WSL 2, Linux or macOS — no Node install needed for the backend.
+
+```bash
+docker compose up --build -d            # Postgres on :5435, API on :4000
+docker compose logs -f api
+curl http://127.0.0.1:4000/api/health   # {"storage":"postgres"}
+docker compose run --rm api npm run -w @apex/api test
+docker compose down                     # add -v to drop the database volume
+```
+
+Migrations run on start, and the demo ledger is seeded only when the database has no users yet, so restarting the stack never wipes work. The stack exposes Postgres on `APEX_DB_PORT` (default 5435) and the API on `APEX_API_PORT` (default 4000); `AUTH_SECRET` comes from a development value in `docker-compose.yml`. The four front-end apps keep running with npm on the host and proxy `/api` to `127.0.0.1:4000`, so they talk to the containerised API without changes.
+
 ## Ledger
 
 Balances are derived from postings, never stored. Every write goes through `post_entry`, which rejects an entry whose postings do not net to zero in each currency, and postings are append-only.
