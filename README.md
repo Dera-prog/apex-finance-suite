@@ -115,6 +115,21 @@ Limits are stored in Postgres (`rate_limits`), so they hold across serverless in
 
 Exceeding a limit answers `429 too_many_requests`. Old rows are pruned opportunistically.
 
+## Staging
+
+Pull requests build against a separate database, `apex_staging`, on the same Neon instance as production. The API project keeps two `DATABASE_URL` entries — production points at the live `neondb`, preview at `apex_staging` — so a preview deployment can create users, request codes and move money without touching the demo ledger.
+
+Preview builds migrate themselves: `npm run db:migrate` is the API project's build command, and the script only touches the database when `VERCEL_ENV=preview`. Production builds exit immediately, so applying migrations to production stays a deliberate manual step (run `npm run -w @apex/api db:migrate` against the production URL). Two previews building at once are serialised by an advisory lock — the second logs that another migration is running and skips.
+
+To use staging by hand, point `DATABASE_URL` at its connection string:
+
+```bash
+DATABASE_URL=<staging-url> npm run -w @apex/api db:migrate
+DATABASE_URL=<staging-url> npm run -w @apex/api db:seed-if-empty
+```
+
+Only previews of the API reach staging. The desktop and mobile previews still rewrite `/api` to the production API, so writes from those previews land in the live ledger.
+
 ## Backups
 
 - **Point-in-time restore:** the production database is Neon. Its history retention is set in the Neon console (free plan keeps about six hours; paid plans up to 30 days) and can restore a branch to any moment inside that window.
