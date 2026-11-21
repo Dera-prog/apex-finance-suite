@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
 import QRCode from 'qrcode';
 import {
   ArrowDownLeft,
@@ -7,7 +6,6 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Check,
-  ChevronDown,
   CircleAlert,
   Download,
   Fingerprint,
@@ -20,7 +18,6 @@ import {
   Send,
   ShieldCheck,
   Smartphone,
-  Sparkles,
   Target,
   Wallet,
   X,
@@ -29,7 +26,15 @@ import {
 import { Logo, Sparkline } from '@shared/ui';
 import { holdings, ngn, stocks } from '@shared/data';
 import { links, isLive } from '@shared/links';
+import { Link, usePath } from './router';
+import { SectionHead } from './pages/common';
+import ProductsPage from './pages/ProductsPage';
+import HowPage from './pages/HowPage';
+import SecurityPage from './pages/SecurityPage';
+import PricingPage from './pages/PricingPage';
+import FaqPage from './pages/FaqPage';
 import './styles.css';
+import './pages.css';
 
 const mobileHref = isLive(links.mobile) ? links.mobile : '#install';
 const desktopHref = isLive(links.desktop) ? links.desktop : '#install';
@@ -45,7 +50,7 @@ function useScrolled(offset = 24) {
   return scrolled;
 }
 
-function useReveal() {
+function useReveal(key: string) {
   useEffect(() => {
     const els = Array.from(document.querySelectorAll<HTMLElement>('.reveal'));
     if (!('IntersectionObserver' in window)) {
@@ -65,18 +70,18 @@ function useReveal() {
     );
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
-  }, []);
+  }, [key]);
 }
 
 const navLinks = [
-  { href: '#products', label: 'Products' },
-  { href: '#how', label: 'How it works' },
-  { href: '#security', label: 'Security' },
-  { href: '#pricing', label: 'Pricing' },
-  { href: '#faq', label: 'FAQ' },
+  { to: '/products', label: 'Products' },
+  { to: '/how-it-works', label: 'How it works' },
+  { to: '/security', label: 'Security' },
+  { to: '/pricing', label: 'Pricing' },
+  { to: '/faq', label: 'FAQ' },
 ];
 
-function Nav() {
+function Nav({ path }: { path: string }) {
   const scrolled = useScrolled();
   const [open, setOpen] = useState(false);
 
@@ -84,14 +89,14 @@ function Nav() {
     <>
       <header className={`nav${scrolled ? ' scrolled' : ''}`}>
         <div className="nav-inner">
-          <a className="nav-brand" href="#top" aria-label="Apex Finance home">
+          <Link className="nav-brand" to="/" aria-label="Apex Finance home">
             <Logo tone={scrolled ? 'dark' : 'light'} size={30} />
-          </a>
+          </Link>
           <nav className="nav-links" aria-label="Primary">
             {navLinks.map((l) => (
-              <a key={l.href} href={l.href}>
+              <Link key={l.to} to={l.to} aria-current={path === l.to ? 'page' : undefined}>
                 {l.label}
-              </a>
+              </Link>
             ))}
           </nav>
           <div className="nav-actions">
@@ -117,9 +122,9 @@ function Nav() {
       {open && (
         <div className="mobile-menu" id="mobile-menu">
           {navLinks.map((l) => (
-            <a key={l.href} href={l.href} onClick={() => setOpen(false)}>
+            <Link key={l.to} to={l.to} onClick={() => setOpen(false)} aria-current={path === l.to ? 'page' : undefined}>
               {l.label}
-            </a>
+            </Link>
           ))}
           <a
             className="btn btn-primary btn-block"
@@ -283,9 +288,9 @@ function Hero() {
             <a className="btn btn-primary" href={mobileHref} {...(isLive(links.mobile) ? { target: '_blank', rel: 'noreferrer' } : {})}>
               <Smartphone size={17} /> Get Apex on your phone
             </a>
-            <a className="btn btn-ghost" href="#products">
+            <Link className="btn btn-ghost" to="/products">
               Explore the products <ArrowRight size={16} />
-            </a>
+            </Link>
           </div>
           <div className="hero-proof">
             <div>
@@ -367,27 +372,6 @@ function Strip() {
   );
 }
 
-function SectionHead({
-  eyebrow,
-  title,
-  copy,
-  center,
-}: {
-  eyebrow: string;
-  title: ReactNode;
-  copy?: ReactNode;
-  center?: boolean;
-}) {
-  return (
-    <div className={`section-head${center ? ' center' : ''}`}>
-      <span className="eyebrow">
-        <Sparkles size={13} /> {eyebrow}
-      </span>
-      <h2>{title}</h2>
-      {copy && <p>{copy}</p>}
-    </div>
-  );
-}
 
 function PlansVisual() {
   return (
@@ -539,6 +523,81 @@ function Products() {
             </article>
           ))}
         </div>
+        <div className="section-more">
+          <Link className="btn btn-ghost" to="/products">
+            Read every product rule <ArrowRight size={15} />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const detailPages = [
+  {
+    to: '/products',
+    tone: 'blue',
+    icon: <Wallet size={20} />,
+    title: 'Products',
+    copy: 'Everyday Fund, fixed deposit and target plans, the wallet states, and an order preview for NGX and US shares.',
+  },
+  {
+    to: '/how-it-works',
+    tone: 'purple',
+    icon: <RefreshCw size={20} />,
+    title: 'How it works',
+    copy: 'Six steps from a phone number to a portfolio, including what every confirmation screen repeats before money moves.',
+  },
+  {
+    to: '/security',
+    tone: 'navy',
+    icon: <ShieldCheck size={20} />,
+    title: 'Security',
+    copy: 'The controls the demo actually enforces, how verification levels work, and the gaps still open before launch.',
+  },
+  {
+    to: '/pricing',
+    tone: 'green',
+    icon: <Landmark size={20} />,
+    title: 'Pricing',
+    copy: 'Everyday fees, worked savings examples, how a share order is costed, and the disclosures in plain words.',
+  },
+  {
+    to: '/faq',
+    tone: 'amber',
+    icon: <CircleAlert size={20} />,
+    title: 'FAQ',
+    copy: 'Thirty answers across accounts, transfers, savings, investing, security and what this demo really is.',
+  },
+];
+
+function Explore() {
+  return (
+    <section className="section" id="explore">
+      <div className="wrap">
+        <div className="section-head-row">
+          <SectionHead
+            eyebrow="Go deeper"
+            title={
+              <>
+                Five pages. <em>All the detail.</em>
+              </>
+            }
+            copy="Each part of the product has its own page. Rules, fees and limits in full — not a slogan standing in for a policy."
+          />
+        </div>
+        <div className="detail-grid">
+          {detailPages.map((page) => (
+            <Link className={`detail-card ${page.tone}`} to={page.to} key={page.to}>
+              <span className="detail-icon">{page.icon}</span>
+              <h3>{page.title}</h3>
+              <p>{page.copy}</p>
+              <span className="detail-go">
+                Open {page.title.toLowerCase()} <ArrowRight size={13} />
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -679,259 +738,6 @@ function DesktopBand() {
   );
 }
 
-function How() {
-  const steps = [
-    {
-      icon: <Fingerprint size={20} />,
-      title: 'Open an account in minutes',
-      copy: 'Phone and email first. Add BVN and NIN when you are ready for full limits — the app explains exactly what each level unlocks.',
-    },
-    {
-      icon: <Target size={20} />,
-      title: 'Give every naira a job',
-      copy: 'Keep spending money flexible, lock a fixed deposit for a higher rate, or set a target with an automatic monthly transfer.',
-    },
-    {
-      icon: <LineChart size={20} />,
-      title: 'Move it or invest it',
-      copy: 'Send from your wallet, withdraw to your bank, or preview a share order with price, fees and risk before you confirm.',
-    },
-  ];
-
-  return (
-    <section className="section" id="how">
-      <div className="wrap">
-        <SectionHead
-          eyebrow="How it works"
-          title={
-            <>
-              Set up once. <em>Use it daily.</em>
-            </>
-          }
-          copy="No branch visit, no waiting on a support ticket to understand your own balance. Each step shows what is happening and what it costs."
-          center
-        />
-        <div className="steps">
-          {steps.map((s, i) => (
-            <article className="step reveal" key={s.title}>
-              <span className="step-num">{i + 1}</span>
-              <span className="step-badge">{s.icon}</span>
-              <h3>{s.title}</h3>
-              <p>{s.copy}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Security() {
-  const cards = [
-    {
-      icon: <Lock size={20} />,
-      title: 'One ledger you can read',
-      copy: 'Every deposit, transfer, plan and trade lands in the same activity list with a reference, status and receipt. Pending money is never shown as spendable.',
-    },
-    {
-      icon: <Fingerprint size={20} />,
-      title: 'Step-up before money moves',
-      copy: 'PIN or device confirmation is required for withdrawals, transfers and share orders. A new device sign-in triggers a security alert.',
-    },
-    {
-      icon: <Landmark size={20} />,
-      title: 'Licensed partners hold the risk',
-      copy: 'Deposits sit with partner banks, payments run on licensed rails and share orders are routed to an SEC-registered broker — not executed by Apex itself.',
-    },
-    {
-      icon: <ShieldCheck size={20} />,
-      title: 'Terms before the tap',
-      copy: 'Fixed-deposit early access, FX conversion and share-order fees are quoted on screen before confirmation. No return is ever promised.',
-    },
-  ];
-
-  return (
-    <section className="section" id="security">
-      <div className="wrap">
-        <SectionHead
-          eyebrow="Trust & security"
-          title={
-            <>
-              Trust is a <em>receipt</em>, not a slogan.
-            </>
-          }
-          copy="The PRD made trust the primary product constraint. That means clear states, tiered verification and a plain explanation of who holds what."
-        />
-        <div className="security-grid">
-          {cards.map((c) => (
-            <article className="trust-card reveal" key={c.title}>
-              <i>{c.icon}</i>
-              <div>
-                <h3>{c.title}</h3>
-                <p>{c.copy}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-        <div className="kyc-levels">
-          {[
-            { level: 'Level 1', title: 'Phone + email', items: ['Browse products', 'Small wallet limits', 'Upgrade any time'] },
-            { level: 'Level 2', title: 'BVN + NIN', items: ['Full wallet limits', 'Savings and transfers', 'NGX + US share investing'] },
-            { level: 'Level 3', title: 'Address + income', items: ['Higher limits', 'Higher FX allowance', 'Reviewed manually'] },
-          ].map((k) => (
-            <div className="kyc reveal" key={k.level}>
-              <div className="kyc-top">
-                <span>{k.level}</span>
-                <BadgeCheck size={14} color="#1D52CE" />
-              </div>
-              <b>{k.title}</b>
-              <ul>
-                {k.items.map((item) => (
-                  <li key={item}>
-                    <Check size={11} style={{ marginTop: 3, flexShrink: 0 }} /> {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-const fees = [
-  { what: 'Account opening', how: 'No Apex fee', launch: 'Free' },
-  { what: 'Apex-to-Apex transfer', how: 'Instant, by Apex tag or phone number', launch: 'Free' },
-  { what: 'Bank withdrawal', how: 'Network fee passed through, shown before confirmation', launch: 'Pass-through' },
-  { what: 'Savings plans', how: 'No maintenance fee; early-access rules on each plan', launch: 'Free' },
-  { what: 'Share orders', how: 'Brokerage fee + statutory levies, quoted up front', launch: 'Quoted' },
-  { what: 'US shares', how: 'FX rate and conversion fee shown before the order', launch: 'Quoted' },
-];
-
-function Pricing() {
-  return (
-    <section className="section pricing" id="pricing">
-      <div className="wrap">
-        <SectionHead
-          eyebrow="Pricing"
-          title={
-            <>
-              Know the cost <em>before</em> you commit.
-            </>
-          }
-          copy="Apex is designed around one rule: the amount that leaves your balance is the amount you agreed to. These are the intended fee surfaces, not a final tariff."
-        />
-        <div className="fee-grid">
-          <div className="fee-table reveal">
-            <div className="fee-row">
-              <span>What</span>
-              <span>How it works</span>
-              <span style={{ textAlign: 'right' }}>At launch</span>
-            </div>
-            {fees.map((f) => (
-              <div className="fee-row" key={f.what}>
-                <b>{f.what}</b>
-                <span>{f.how}</span>
-                <em>{f.launch}</em>
-              </div>
-            ))}
-          </div>
-          <aside className="fee-note reveal">
-            <h3>No surprise deductions</h3>
-            <p>
-              Final rates, tenors and fees are set with licensed partners and shown inside the app
-              before a plan or order is confirmed. Numbers in this concept are illustrative.
-            </p>
-            <ul>
-              <li>
-                <Check size={13} /> Fee preview on every money movement
-              </li>
-              <li>
-                <Check size={13} /> Interest credited on a visible schedule
-              </li>
-              <li>
-                <Check size={13} /> Early-access rules printed on the plan card
-              </li>
-              <li>
-                <Check size={13} /> Share prices delayed at least 15 minutes
-              </li>
-            </ul>
-          </aside>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-const faqs = [
-  {
-    q: 'Is my money safe with Apex?',
-    a: 'In this concept, deposits are described as held with licensed partner banks and payments run on licensed rails. Deposit insurance only applies where a partner bank’s cover applies — it does not protect share prices. A live product would publish the exact partner, custody and coverage terms before accepting deposits.',
-  },
-  {
-    q: 'Can I withdraw a fixed savings plan early?',
-    a: 'Fixed plans are time-bound for a higher rate. The early-access rule — including any loss of accrued interest or fee — is shown on the plan card before you open it, and again before you confirm an early withdrawal.',
-  },
-  {
-    q: 'How does share investing work?',
-    a: 'Orders are routed to an SEC-registered broker. You see the delayed price, estimated units, brokerage fee and levies before submitting. Shares can fall as well as rise, and Apex does not promise a return.',
-  },
-  {
-    q: 'Do I need my BVN or NIN to start?',
-    a: 'No. Level 1 lets you open an account with a phone number and email and explore the products. Level 2 adds BVN and NIN for full wallet, savings and investing limits. Level 3 raises limits after address and income checks.',
-  },
-  {
-    q: 'Is this a real financial product?',
-    a: 'No. This site and the connected apps are a design and engineering prototype built from a product requirements document and a Figma design. All balances, plans, prices and transactions are demo data, and no real money moves.',
-  },
-];
-
-function Faq() {
-  const [open, setOpen] = useState<number | null>(0);
-  return (
-    <section className="section" id="faq">
-      <div className="wrap faq-grid">
-        <div>
-          <SectionHead eyebrow="FAQ" title={<>The questions people actually ask.</>} />
-          <p style={{ marginTop: 18, fontSize: 13, lineHeight: 1.7, color: 'var(--site-muted)', maxWidth: 320 }}>
-            Can’t find an answer? A live support thread would connect from the app’s Profile tab, with the
-            transaction reference attached automatically.
-          </p>
-        </div>
-        <div className="faq">
-          {faqs.map((f, i) => (
-            <div className={`faq-item${open === i ? ' open' : ''}`} key={f.q}>
-              <button
-                type="button"
-                className="faq-q"
-                id={`faq-q-${i}`}
-                aria-expanded={open === i}
-                aria-controls={`faq-${i}`}
-                onClick={() => setOpen(open === i ? null : i)}
-              >
-                {f.q}
-                <ChevronDown size={18} />
-              </button>
-              <div
-                className="faq-a"
-                id={`faq-${i}`}
-                role="region"
-                aria-labelledby={`faq-q-${i}`}
-                aria-hidden={open !== i}
-              >
-                <div>
-                  <p>{f.a}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function Install() {
   const [qr, setQr] = useState<string | null>(null);
   const live = isLive(links.mobile);
@@ -1000,10 +806,10 @@ function Footer() {
           </div>
           <div className="footer-col">
             <h3>Product</h3>
-            <a href="#products">Savings</a>
-            <a href="#products">Wallet &amp; transfers</a>
-            <a href="#products">Invest</a>
-            <a href="#pricing">Pricing</a>
+            <Link to="/products#savings">Savings</Link>
+            <Link to="/products#wallet">Wallet &amp; transfers</Link>
+            <Link to="/products#invest">Invest</Link>
+            <Link to="/how-it-works">How it works</Link>
           </div>
           <div className="footer-col">
             <h3>Surfaces</h3>
@@ -1018,15 +824,16 @@ function Footer() {
                 Case study
               </a>
             ) : (
-              <a href="#top">Case study</a>
+              <Link to="/">Case study</Link>
             )}
           </div>
           <div className="footer-col">
             <h3>Trust</h3>
-            <a href="#security">Security</a>
-            <a href="#security">KYC levels</a>
-            <a href="#faq">FAQ</a>
-            <a href="#pricing">Disclosures</a>
+            <Link to="/security">Security</Link>
+            <Link to="/security#verification">KYC levels</Link>
+            <Link to="/pricing">Pricing</Link>
+            <Link to="/faq">FAQ</Link>
+            <Link to="/pricing#disclosures">Disclosures</Link>
           </div>
         </div>
         <div className="footer-bottom">
@@ -1045,24 +852,127 @@ function Footer() {
   );
 }
 
+const pageMeta: Record<string, { title: string; description: string }> = {
+  '/': {
+    title: 'Apex Finance — Save. Access. Invest. Grow.',
+    description:
+      'Apex Finance brings savings, wallet and beginner-friendly share investing into one simple, transparent app. Nigeria-first.',
+  },
+  '/products': {
+    title: 'Products — savings, wallet and share investing | Apex Finance',
+    description:
+      'Flexible, fixed and target savings, a wallet with visible states, and NGX or US share orders with fees and risk shown before you confirm.',
+  },
+  '/how-it-works': {
+    title: 'How it works — from phone number to portfolio | Apex Finance',
+    description:
+      'Six steps from a phone number to a portfolio, plus what every confirmation screen repeats before money moves.',
+  },
+  '/security': {
+    title: 'Security — controls, verification and custody | Apex Finance',
+    description:
+      'What the Apex Finance demo actually enforces, how verification levels work, who would hold the risk, and the gaps still open.',
+  },
+  '/pricing': {
+    title: 'Pricing — fees, savings rates and disclosures | Apex Finance',
+    description:
+      'Everyday fees, worked savings examples, share-order costs, FX quotes and plain-language disclosures.',
+  },
+  '/faq': {
+    title: 'FAQ — accounts, money, savings and investing | Apex Finance',
+    description:
+      'Answers about sign-in, transfers, savings plans, share orders, security and what this prototype really is.',
+  },
+};
+
+function Home() {
+  return (
+    <>
+      <Hero />
+      <Strip />
+      <Products />
+      <DesktopBand />
+      <Explore />
+      <Install />
+    </>
+  );
+}
+
+function NotFound() {
+  return (
+    <section className="page-section not-found">
+      <div className="wrap">
+        <span className="eyebrow">404</span>
+        <h1>
+          That page is not <em>here.</em>
+        </h1>
+        <p className="hero-lede">
+          The address may be mistyped, or the page may never have existed. The five detail pages are one
+          click away.
+        </p>
+        <div className="not-found-links">
+          {navLinks.map((l) => (
+            <Link key={l.to} to={l.to}>
+              {l.label}
+            </Link>
+          ))}
+          <Link to="/">Home</Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Route({ path }: { path: string }) {
+  switch (path) {
+    case '/':
+      return <Home />;
+    case '/products':
+      return <ProductsPage />;
+    case '/how-it-works':
+      return <HowPage />;
+    case '/security':
+      return <SecurityPage />;
+    case '/pricing':
+      return <PricingPage />;
+    case '/faq':
+      return <FaqPage />;
+    default:
+      return <NotFound />;
+  }
+}
+
 export default function App() {
-  useReveal();
+  const path = usePath();
+  useReveal(path);
+
+  useEffect(() => {
+    const meta = pageMeta[path] ?? {
+      title: 'Page not found — Apex Finance',
+      description: 'The page you asked for does not exist on the Apex Finance concept site.',
+    };
+    document.title = meta.title;
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute('content', meta.description);
+  }, [path]);
+
+  useEffect(() => {
+    const target = window.location.hash
+      ? document.getElementById(window.location.hash.slice(1))
+      : null;
+    if (target) target.scrollIntoView({ block: 'start' });
+    else window.scrollTo({ top: 0, left: 0 });
+  }, [path]);
+
   return (
     <div className="site">
-      <a className="skip-link" href="#products">
-        Skip to products
+      <a className="skip-link" href="#main">
+        Skip to content
       </a>
-      <Nav />
-      <main>
-        <Hero />
-        <Strip />
-        <Products />
-        <DesktopBand />
-        <How />
-        <Security />
-        <Pricing />
-        <Faq />
-        <Install />
+      <Nav path={path} />
+      <main id="main" tabIndex={-1}>
+        <Route path={path} />
       </main>
       <Footer />
     </div>
