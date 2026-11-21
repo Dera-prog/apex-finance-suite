@@ -121,6 +121,9 @@ Each app builds to its own `dist/` directory and deploys to Vercel as a static s
 
 ### Preview deployments
 
-Every pull request builds a preview of all four surfaces. `.github/workflows/preview.yml` asks the Vercel API for a deployment of each project, waits for it to become ready, and keeps one comment on the PR updated with the four URLs. The comment is edited in place on later pushes, and an in-progress run is cancelled when a newer push arrives.
+Opening or updating a pull request builds a preview of every surface — the four front-end apps and the API. Vercel's GitHub integration does this automatically for the projects in `dera19`; it comments a table of ready preview URLs on the pull request, and each push replaces the previews for the previous commit. No repository secret or workflow is involved.
 
-The workflow needs a repository secret named `VERCEL_TOKEN` holding a Vercel access token for the `dera19` team. Pull requests from forks never receive repository secrets, so their previews cannot be built and the job says so instead of failing silently.
+Two things to know:
+
+- Preview builds call the deployed API, and the API's preview deployment reads the same database as production. Treat a pull request preview as a demo surface: writes land on the shared demo account.
+- Vercel only builds previews for branches inside this repository. Pull requests from forks are not built.
