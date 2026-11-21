@@ -13,6 +13,16 @@ A four-surface product suite for a fictional Nigerian savings-and-investing app:
 
 The demo apps sign in with a real one-time code from the API; until an SMS gateway is configured the code is returned as `devCode` and shown on the OTP screen. No real money moves.
 
+## Screenshots
+
+| Case study | Marketing website |
+| --- | --- |
+| ![Case study hero](docs/screenshots/case-study.png) | ![Website hero](docs/screenshots/website.png) |
+| **Desktop app** | **Mobile PWA** |
+| ![Desktop dashboard](docs/screenshots/desktop-overview.png) | ![Mobile home screen](docs/screenshots/mobile-home.png) |
+
+All four run the shared demo account (Ada Okafor). Also: [desktop invest screen](docs/screenshots/desktop-invest.png).
+
 ## Repository layout
 
 ```
