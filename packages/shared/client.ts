@@ -50,6 +50,10 @@ const rejection = (payload: unknown): { code: string; error: string } => {
 const authHeaders = (token?: string | null): Record<string, string> =>
   token ? { authorization: `Bearer ${token}` } : {};
 
+/** A gateway 5xx or an HTML error page means no Apex handler answered the call. */
+const unreachable = (res: Response, payload: unknown) =>
+  res.status === 502 || res.status === 503 || res.status === 504 || payload === null;
+
 async function post(base: string, path: string, body: unknown, token?: string | null): Promise<LedgerOutcome> {
   let res: Response;
   try {
@@ -64,7 +68,7 @@ async function post(base: string, path: string, body: unknown, token?: string | 
 
   const payload: unknown = await res.json().catch(() => null);
   if (res.ok) return { status: 'ok', state: payload as MobileStateResponse };
-  if (res.status === 503) return { status: 'offline' };
+  if (unreachable(res, payload)) return { status: 'offline' };
   return { status: 'rejected', ...rejection(payload) };
 }
 
@@ -103,7 +107,7 @@ export async function requestSignInCode(base: string, input: RequestCodeRequest)
 
   const payload: unknown = await res.json().catch(() => null);
   if (res.ok) return { status: 'ok', ...(payload as RequestCodeResponse) };
-  if (res.status === 503) return { status: 'offline' };
+  if (unreachable(res, payload)) return { status: 'offline' };
   return { status: 'rejected', ...rejection(payload) };
 }
 
@@ -121,7 +125,7 @@ export async function verifySignInCode(base: string, input: VerifyCodeRequest): 
 
   const payload: unknown = await res.json().catch(() => null);
   if (res.ok) return { status: 'ok', auth: payload as AuthResponse };
-  if (res.status === 503) return { status: 'offline' };
+  if (unreachable(res, payload)) return { status: 'offline' };
   return { status: 'rejected', ...rejection(payload) };
 }
 
