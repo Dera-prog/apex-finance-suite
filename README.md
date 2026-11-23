@@ -91,6 +91,8 @@ Every money action is a server write; the apps never hold balances of their own.
 
 Each returns the full `MobileStateResponse` after committing, takes an optional `reference` for idempotency, and answers failures with `{ error, message }` plus a 4xx/503 status. The desktop and mobile stores adopt that returned state, so a client device cannot invent a balance: a server rejection or an unreachable server ends the attempt with a message instead of a local edit.
 
+Vercel routes the deployed API by file under `apps/api/api/`, and the Hobby plan allows 12 functions per deployment. Plan actions share `api/plans/[id]/[action].ts` and payment actions share `api/payments/[action].ts`; new endpoints need a file (or an extra action in an existing one) to be reachable.
+
 ## Accounts and sign-in
 
 Each user is a phone number with its own ledger owner. Signing up provisions a zeroed account (wallet and external accounts in NGN and USD, plus a `new` profile) on first verification, and every read and write is scoped to the bearer token that verified it.
