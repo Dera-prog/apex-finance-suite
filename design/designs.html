@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>High-fidelity designs — Apex Finance</title>
+<meta name="description" content="High-fidelity desktop and mobile designs for Apex Finance." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&family=Instrument+Serif:ital@0;1&family=Cascadia+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="kit-header">
+  <div class="kit-bar">
+    <a class="kit-brand" href="index.html">
+      <span class="kit-mark" aria-hidden="true"></span>
+      <span><b>Apex Finance</b><small>Design kit</small></span>
+    </a>
+    <nav class="kit-nav" aria-label="Design kit">
+      <a href="index.html">Overview</a>
+      <a href="system.html">Design system</a>
+      <a href="flows.html">User flows</a>
+      <a href="wireframes.html">Wireframes</a>
+      <a href="designs.html" aria-current="page">Designs</a>
+      <a href="prototype.html">Prototype</a>
+      <a href="optimizations.html">Optimizations</a>
+    </nav>
+    <div class="kit-tools">
+      <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">☾</button>
+      <a class="kit-cta" href="prototype.html">Open prototype →</a>
+    </div>
+  </div>
+</header>
+
+<main class="kit-main" id="main">
+
+  <div class="page-head">
+    <span class="eyebrow">Craft</span>
+    <h1>The product, <span class="serif">at full colour</span></h1>
+    <p class="lede">Seven screens using the shipped brand system and the demo account's real figures: ₦268,400.00 total, four plans, DANGCEM at ₦612.00. The desktop and phone mocks share every token and component with the prototype.</p>
+  </div>
+
+  <section class="section mt-0" id="desktop">
+    <div class="section-head"><div><h2>Desktop</h2><p>Work surfaces for the cautious investor: dense but calm, with the balance as the anchor.</p></div></div>
+
+    <div class="mock-label">01 · Overview · signed in as Ada · 1440 × 900</div>
+    <div class="desk-mock" style="margin-bottom:26px">
+      <aside class="side">
+        <div class="brand"><span class="kit-mark"></span><span><b>apex</b><small>Finance</small></span></div>
+        <span class="lbl">Workspace</span>
+        <div class="navi active"><span class="ni">⌂</span>Overview</div>
+        <div class="navi"><span class="ni">◫</span>Wallet</div>
+        <div class="navi"><span class="ni">◎</span>Savings</div>
+        <div class="navi"><span class="ni">◔</span>Invest</div>
+        <div class="navi"><span class="ni">⇄</span>Activity</div>
+        <span class="lbl">Account</span>
+        <div class="navi"><span class="ni">⚙</span>Profile</div>
+        <div class="spacer"></div>
+        <div class="me"><span class="ap-avatar">AO</span><span><b>Ada Obi</b><span>Verified · Tier 2</span></span></div>
+      </aside>
+      <div class="main">
+        <div class="topline">
+          <div><h2>Good morning, Ada</h2><div class="sub">Sunday, 23 November · everything updated just now</div></div>
+          <div class="search">⌕ Search stocks, people, receipts</div>
+        </div>
+        <div class="kpis">
+          <div class="kpi hero-kpi">
+            <div class="k">Total balance</div>
+            <div class="v">₦268,400.00</div>
+            <div class="d">+ ₦9,400.00 this month</div>
+          </div>
+          <div class="kpi"><div class="k">Wallet</div><div class="v">₦68,400.00</div><div class="d">Available now</div></div>
+          <div class="kpi"><div class="k">In plans</div><div class="v">₦200,000.00</div><div class="d" style="color:var(--ink-400)">4 plans · 1 locked</div></div>
+        </div>
+        <div class="cols">
+          <div class="box">
+            <h4>Balance, last 30 days <a href="#">View activity →</a></h4>
+            <div class="chart">
+              <svg viewBox="0 0 400 110" preserveAspectRatio="none" aria-hidden="true">
+                <defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6bff" stop-opacity="0.35"/><stop offset="1" stop-color="#2f6bff" stop-opacity="0"/></linearGradient></defs>
+                <path d="M0 88 L40 80 L80 84 L120 66 L160 70 L200 52 L240 56 L280 38 L320 44 L360 26 L400 30 L400 110 L0 110 Z" fill="url(#fill)"/>
+                <path d="M0 88 L40 80 L80 84 L120 66 L160 70 L200 52 L240 56 L280 38 L320 44 L360 26 L400 30" fill="none" stroke="#2f6bff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="quick" style="margin-top:10px">
+              <button><i>＋</i>Add money</button>
+              <button><i>↑</i>Withdraw</button>
+              <button><i>→</i>Send money</button>
+            </div>
+          </div>
+          <div class="box">
+            <h4>Recent money <a href="#">All →</a></h4>
+            <div class="ap-row"><span class="ico">↓</span><span class="who"><b>Wallet funding</b><span>Today · 09:14</span></span><span class="amt" style="color:var(--green-700)">+₦50,000.00</span></div>
+            <div class="ap-row"><span class="ico">↑</span><span class="who"><b>Rent plan</b><span>Yesterday · 18:02</span></span><span class="amt">−₦10,000.00</span></div>
+            <div class="ap-row"><span class="ico">→</span><span class="who"><b>Transfer to Ada</b><span>Mon · 12:40</span></span><span class="amt">−₦5,000.00</span></div>
+            <div class="ap-row"><span class="ico">◔</span><span class="who"><b>DANGCEM · 20 units</b><span>Mon · 11:03</span></span><span class="amt">−₦12,240.00</span></div>
+          </div>
+        </div>
+        <div class="cols">
+          <div class="box">
+            <h4>Savings <a href="#">Manage →</a></h4>
+            <div class="ap-plan" style="border:0;padding:0">
+              <div class="head"><b>Rent · Fixed</b><span class="ap-status pending">Locked</span></div>
+              <div style="display:flex;align-items:baseline;justify-content:space-between"><span class="amt">₦85,000.00</span><span class="ap-help">34% of ₦250,000</span></div>
+              <div class="ap-progress"><i style="width:34%"></i></div>
+              <div class="ap-help">Matures 31 Dec 2026</div>
+            </div>
+          </div>
+          <div class="box">
+            <h4>Market movers <a href="#">Invest →</a></h4>
+            <div class="ap-row"><span class="ico">D</span><span class="who"><b>DANGCEM</b><span>₦612.00</span></span><span class="amt" style="color:var(--green-700)">+1.8%</span></div>
+            <div class="ap-row"><span class="ico">G</span><span class="who"><b>GTCO</b><span>₦48.20</span></span><span class="amt" style="color:var(--green-700)">+0.6%</span></div>
+            <div class="ap-row"><span class="ico">A</span><span class="who"><b>AAPL</b><span>$228.52</span></span><span class="amt" style="color:var(--red-600)">−0.4%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock-label">02 · Wallet · accounts, actions and receipts</div>
+    <div class="desk-mock" style="margin-bottom:26px">
+      <aside class="side">
+        <div class="brand"><span class="kit-mark"></span><span><b>apex</b><small>Finance</small></span></div>
+        <span class="lbl">Workspace</span>
+        <div class="navi"><span class="ni">⌂</span>Overview</div>
+        <div class="navi active"><span class="ni">◫</span>Wallet</div>
+        <div class="navi"><span class="ni">◎</span>Savings</div>
+        <div class="navi"><span class="ni">◔</span>Invest</div>
+        <div class="navi"><span class="ni">⇄</span>Activity</div>
+        <span class="lbl">Account</span>
+        <div class="navi"><span class="ni">⚙</span>Profile</div>
+        <div class="spacer"></div>
+        <div class="me"><span class="ap-avatar">AO</span><span><b>Ada Obi</b><span>Verified · Tier 2</span></span></div>
+      </aside>
+      <div class="main">
+        <div class="topline"><div><h2>Wallet</h2><div class="sub">Move money in and out</div></div><div class="search">⌕ Search receipts</div></div>
+        <div class="kpis" style="grid-template-columns:1.4fr 1fr 1fr">
+          <div class="kpi hero-kpi"><div class="k">Available to move</div><div class="v">₦68,400.00</div><div class="d">Settled · NGN</div></div>
+          <div class="kpi"><div class="k">USD wallet</div><div class="v">$240.00</div><div class="d" style="color:var(--ink-400)">For US shares</div></div>
+          <div class="kpi"><div class="k">This month</div><div class="v">+₦45,000.00</div><div class="d">3 deposits · 2 sends</div></div>
+        </div>
+        <div class="cols">
+          <div class="box">
+            <h4>Activity <a href="#">Filter →</a></h4>
+            <div class="ap-row"><span class="ico">↓</span><span class="who"><b>Wallet funding</b><span>Today · 09:14 · APX-DEP-560563</span></span><span class="amt" style="color:var(--green-700)">+₦50,000.00<small>Completed</small></span></div>
+            <div class="ap-row"><span class="ico">→</span><span class="who"><b>Transfer to Ada</b><span>Mon · 12:40 · APX-TRF-764907</span></span><span class="amt">−₦5,000.00<small>Completed</small></span></div>
+            <div class="ap-row"><span class="ico">↑</span><span class="who"><b>Withdraw to GTBank</b><span>Sun · 16:22 · APX-WDR-190016</span></span><span class="amt">−₦20,000.00<small>Completed</small></span></div>
+            <div class="ap-row"><span class="ico">◎</span><span class="who"><b>Rent plan</b><span>Sun · 15:58 · APX-SAV-936439</span></span><span class="amt">−₦10,000.00<small>Completed</small></span></div>
+            <div class="ap-row"><span class="ico">◎</span><span class="who"><b>Rent plan withdrawal</b><span>Sun · 15:47 · APX-SAV-846976</span></span><span class="amt" style="color:var(--green-700)">+₦4,000.00<small>Completed</small></span></div>
+          </div>
+          <div class="box">
+            <h4>Move money</h4>
+            <div class="quick" style="grid-template-columns:1fr 1fr">
+              <button><i>＋</i>Add money</button>
+              <button><i>↑</i>Withdraw</button>
+              <button><i>→</i>Send money</button>
+              <button><i>◎</i>Open plan</button>
+            </div>
+            <div class="callout" style="margin-top:12px;font-size:10px;padding:9px 11px">
+              Every action posts to the ledger. If the server is unreachable, nothing is deducted and you will see a retry.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock-label">03 · Invest · quote to ticket</div>
+    <div class="desk-mock">
+      <aside class="side">
+        <div class="brand"><span class="kit-mark"></span><span><b>apex</b><small>Finance</small></span></div>
+        <span class="lbl">Workspace</span>
+        <div class="navi"><span class="ni">⌂</span>Overview</div>
+        <div class="navi"><span class="ni">◫</span>Wallet</div>
+        <div class="navi"><span class="ni">◎</span>Savings</div>
+        <div class="navi active"><span class="ni">◔</span>Invest</div>
+        <div class="navi"><span class="ni">⇄</span>Activity</div>
+        <span class="lbl">Account</span>
+        <div class="navi"><span class="ni">⚙</span>Profile</div>
+        <div class="spacer"></div>
+        <div class="me"><span class="ap-avatar">AO</span><span><b>Ada Obi</b><span>Verified · Tier 2</span></span></div>
+      </aside>
+      <div class="main">
+        <div class="topline"><div><h2>Invest</h2><div class="sub">Nigerian and US shares</div></div><div class="search">⌕ DANGCEM</div></div>
+        <div class="cols" style="grid-template-columns:1.2fr 1fr">
+          <div class="box">
+            <h4>Watchlist <a href="#">All quotes →</a></h4>
+            <div class="ap-row"><span class="ico">D</span><span class="who"><b>DANGCEM</b><span>Dangote Cement · NGX</span></span><span class="amt">₦612.00<small style="color:var(--green-700)">+1.8% today</small></span></div>
+            <div class="ap-row"><span class="ico">G</span><span class="who"><b>GTCO</b><span>Guaranty Trust · NGX</span></span><span class="amt">₦48.20<small style="color:var(--green-700)">+0.6%</small></span></div>
+            <div class="ap-row"><span class="ico">M</span><span class="who"><b>MTNN</b><span>MTN Nigeria · NGX</span></span><span class="amt">₦221.50<small style="color:var(--red-600)">−0.9%</small></span></div>
+            <div class="ap-row"><span class="ico">A</span><span class="who"><b>AAPL</b><span>Apple · NASDAQ</span></span><span class="amt">$228.52<small style="color:var(--red-600)">−0.4%</small></span></div>
+            <h4 style="margin-top:14px">Your holdings</h4>
+            <div class="ap-row"><span class="ico">D</span><span class="who"><b>DANGCEM</b><span>120 units · avg ₦588.00</span></span><span class="amt">₦73,440.00<small style="color:var(--green-700)">+₦2,880.00</small></span></div>
+            <div class="ap-row"><span class="ico">A</span><span class="who"><b>AAPL</b><span>3.5 units · avg $214.10</span></span><span class="amt">$799.82<small style="color:var(--green-700)">+$50.47</small></span></div>
+          </div>
+          <div class="box">
+            <h4>Buy DANGCEM</h4>
+            <div class="ticket">
+              <div class="ap-seg"><button aria-pressed="true">Buy</button><button>Sell</button></div>
+              <div class="ap-field"><label>Amount</label><div class="ap-amount" style="padding-bottom:6px"><span class="cur" style="font-size:14px">₦</span><input value="25,000" aria-label="Amount" style="font-size:24px" /></div></div>
+              <div class="ap-kv"><span>Price per unit</span><b>₦612.00</b></div>
+              <div class="ap-kv"><span>Units</span><b>40.85</b></div>
+              <div class="ap-kv"><span>Fee</span><b>₦0.00</b></div>
+              <div class="ap-kv" style="border-top:1px solid var(--line);margin-top:4px;padding-top:8px"><span>Cash after</span><b>₦43,400.00</b></div>
+              <button class="ap-btn primary block">Review buy</button>
+              <span class="ap-help" style="text-align:center">Quotes refresh every 60 s while this ticket is open.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="mobile">
+    <div class="section-head"><div><h2>Mobile</h2><p>One-handed, receipt-first. The light theme in daylight, the royal-blue theme at night.</p></div></div>
+    <div class="device-scroll-wrap">
+      <div style="display:flex;gap:26px;justify-content:center;flex-wrap:wrap;padding:8px 2px 22px;min-width:min-content">
+
+        <div>
+          <div class="mock-label" style="justify-content:center">04 · Overview</div>
+          <div class="device ap">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="screen-scroll">
+                <div class="proto-screen">
+                  <div class="ap-topbar">
+                    <span class="ap-avatar">AO</span>
+                    <span style="flex:1"><b style="display:block;font-size:13px">Good morning, Ada</b><span class="ap-help">Everything is up to date</span></span>
+                    <button class="ap-iconbtn" aria-label="Notifications">◔</button>
+                  </div>
+                  <div class="body">
+                    <div class="ap-balance">
+                      <span class="tiny">Total balance</span>
+                      <div class="big">₦268,400.00</div>
+                      <span class="sub">Wallet ₦68,400.00 · Plans ₦200,000.00</span>
+                      <div class="row">
+                        <button class="ap-btn">Add money</button>
+                        <button class="ap-btn">Withdraw</button>
+                      </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                      <button class="ap-card flat" style="display:grid;gap:4px;justify-items:center;padding:12px 6px;cursor:pointer"><span style="font-size:17px">↓</span><span style="font-size:10.5px;font-weight:800">Add money</span></button>
+                      <button class="ap-card flat" style="display:grid;gap:4px;justify-items:center;padding:12px 6px;cursor:pointer"><span style="font-size:17px">→</span><span style="font-size:10.5px;font-weight:800">Send</span></button>
+                      <button class="ap-card flat" style="display:grid;gap:4px;justify-items:center;padding:12px 6px;cursor:pointer"><span style="font-size:17px">◎</span><span style="font-size:10.5px;font-weight:800">Plans</span></button>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-family:var(--font-display);font-size:13.5px">Savings</b><span class="ap-help">View all</span></div>
+                    <div class="ap-plan">
+                      <div class="head"><b>Rent · Fixed</b><span class="ap-status pending">Locked</span></div>
+                      <div style="display:flex;align-items:baseline;justify-content:space-between"><span class="amt">₦85,000.00</span><span class="ap-help">34% of ₦250,000</span></div>
+                      <div class="ap-progress"><i style="width:34%"></i></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-family:var(--font-display);font-size:13.5px">Recent activity</b><span class="ap-help">View all</span></div>
+                    <div class="ap-card" style="padding:4px 14px">
+                      <div class="ap-row"><span class="ico">↓</span><span class="who"><b>Wallet funding</b><span>Today · 09:14</span></span><span class="amt" style="color:var(--green-700)">+₦50,000.00</span></div>
+                      <div class="ap-row"><span class="ico">→</span><span class="who"><b>Transfer to Ada</b><span>Mon · 12:40</span></span><span class="amt">−₦5,000.00</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <nav class="ap-nav" aria-label="Primary">
+                <button aria-current="page"><span class="ni">⌂</span>Home</button>
+                <button><span class="ni">◫</span>Wallet</button>
+                <button><span class="ni">◎</span>Plans</button>
+                <button><span class="ni">◔</span>Invest</button>
+                <button><span class="ni">☰</span>Activity</button>
+              </nav>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="mock-label" style="justify-content:center">05 · Add money</div>
+          <div class="device ap">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="screen-scroll">
+                <div class="proto-screen">
+                  <div class="body">
+                    <button class="ap-back">← Back</button>
+                    <div>
+                      <h3 style="font-size:21px;margin-bottom:2px">Add money</h3>
+                      <span class="ap-help">Fund your wallet from a linked bank. Demo funds settle instantly.</span>
+                    </div>
+                    <div class="ap-amount"><span class="cur">₦</span><input value="25,000" aria-label="Amount" /></div>
+                    <div class="ap-chip-row">
+                      <button class="ap-chip">₦5,000</button>
+                      <button class="ap-chip" aria-pressed="true">₦25,000</button>
+                      <button class="ap-chip">₦50,000</button>
+                      <button class="ap-chip">Max</button>
+                    </div>
+                    <div>
+                      <span class="ap-help" style="display:block;margin-bottom:6px;font-weight:800">Pay from</span>
+                      <div class="ap-card" style="display:flex;align-items:center;gap:10px;border-color:var(--blue-500);box-shadow:0 0 0 3px rgba(47,107,255,0.12)">
+                        <span class="ico" style="width:34px;height:34px;border-radius:10px;background:var(--blue-50);display:grid;place-items:center;color:var(--blue-700)">⌂</span>
+                        <span style="flex:1"><b style="display:block;font-size:12.5px">GTBank · 0123456789</b><span class="ap-help">Ada Obi · linked bank</span></span>
+                        <span class="ap-status">Selected</span>
+                      </div>
+                      <div class="ap-card mt-1" style="display:flex;align-items:center;gap:10px">
+                        <span class="ico" style="width:34px;height:34px;border-radius:10px;background:var(--surface);display:grid;place-items:center">▭</span>
+                        <span style="flex:1"><b style="display:block;font-size:12.5px">Card</b><span class="ap-help">Paystack sandbox · test card</span></span>
+                      </div>
+                    </div>
+                    <div class="ap-kv"><span>Fee</span><b>₦0.00</b></div>
+                    <button class="ap-btn primary block">Review deposit</button>
+                    <span class="ap-help" style="text-align:center">You will see a receipt with a reference before anything is final.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="mock-label" style="justify-content:center">06 · Review sheet</div>
+          <div class="device ap">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="screen-scroll" style="position:relative">
+                <div class="proto-screen" style="opacity:0.45;pointer-events:none">
+                  <div class="body">
+                    <button class="ap-back">← Back</button>
+                    <h3 style="font-size:21px">Add money</h3>
+                    <div class="ap-amount"><span class="cur">₦</span><input value="25,000" aria-label="Amount" /></div>
+                    <div class="ap-chip-row"><button class="ap-chip">₦5,000</button><button class="ap-chip" aria-pressed="true">₦25,000</button><button class="ap-chip">₦50,000</button></div>
+                    <div class="ap-card" style="height:64px"></div>
+                    <div class="ap-card" style="height:48px"></div>
+                    <button class="ap-btn primary block">Review deposit</button>
+                    <div style="height:180px"></div>
+                  </div>
+                </div>
+                <div style="position:absolute;inset:0;background:rgba(6,18,54,0.45)"></div>
+                <div class="ap-sheet" style="position:absolute;left:0;right:0;bottom:0;border-radius:26px 26px 0 0">
+                  <div class="grab"></div>
+                  <h3>Confirm deposit</h3>
+                  <span class="ap-help">Check the details before your wallet changes.</span>
+                  <div class="ap-card mt-2" style="background:var(--surface-soft)">
+                    <div class="ap-kv"><span>Amount</span><b>₦25,000.00</b></div>
+                    <div class="ap-kv"><span>Fee</span><b>₦0.00</b></div>
+                    <div class="ap-kv"><span>From</span><b>GTBank · 6789</b></div>
+                    <div class="ap-kv" style="border-top:1px solid var(--line);padding-top:8px;margin-top:4px"><span>New wallet balance</span><b>₦93,400.00</b></div>
+                  </div>
+                  <button class="ap-btn primary block mt-2">Confirm deposit</button>
+                  <button class="ap-btn ghost block mt-1">Cancel</button>
+                  <p class="ap-help" style="text-align:center;margin-top:8px">Funds are credited only after the ledger entry is written.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="mock-label" style="justify-content:center">07 · Receipt · dark</div>
+          <div class="device ap" data-theme="dark">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="screen-scroll">
+                <div class="proto-screen">
+                  <div class="body" style="padding-top:14px">
+                    <div class="ap-success-mark">✓</div>
+                    <div style="text-align:center">
+                      <h3 style="font-size:20px;margin-bottom:2px">Money added</h3>
+                      <span class="ap-help">Your wallet is updated.</span>
+                    </div>
+                    <div style="text-align:center">
+                      <div style="font-family:var(--font-display);font-size:34px;font-weight:700;letter-spacing:-0.03em">₦93,400.00</div>
+                      <span class="ap-help">New wallet balance</span>
+                    </div>
+                    <div class="ap-card">
+                      <div class="ap-kv"><span>Added</span><b>+₦25,000.00</b></div>
+                      <div class="ap-kv"><span>From</span><b>GTBank · 6789</b></div>
+                      <div class="ap-kv"><span>Fee</span><b>₦0.00</b></div>
+                      <div class="ap-kv"><span>When</span><b>Today, 09:14</b></div>
+                    </div>
+                    <div class="ap-ref"><span>APX-DEP-560563</span><button>Copy</button></div>
+                    <button class="ap-btn primary block">Done</button>
+                    <div style="display:flex;gap:8px">
+                      <button class="ap-btn ghost" style="flex:1">Add again</button>
+                      <button class="ap-btn ghost" style="flex:1">View activity</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <p class="hint" style="text-align:center">Scroll the row sideways on smaller screens. The fourth frame is switched to the royal-blue theme with the same components.</p>
+  </section>
+
+  <div class="link-row">
+    <a class="btn-link solid" href="prototype.html">Next: click it →</a>
+    <a class="btn-link" href="optimizations.html">What to improve</a>
+  </div>
+
+</main>
+
+<footer class="kit-footer">
+  <span>Apex Finance design kit · <span data-year></span> · Built from the live product</span>
+  <span><a href="prototype.html">Prototype</a> · <a href="optimizations.html">Backlog</a></span>
+</footer>
+
+<script src="kit.js"></script>
+</body>
+</html>

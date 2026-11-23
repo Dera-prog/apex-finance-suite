@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wireframes — Apex Finance</title>
+<meta name="description" content="Low-fidelity wireframes with annotations for the Apex Finance wallet, savings and investing flows." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&family=Instrument+Serif:ital@0;1&family=Cascadia+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="kit-header">
+  <div class="kit-bar">
+    <a class="kit-brand" href="index.html">
+      <span class="kit-mark" aria-hidden="true"></span>
+      <span><b>Apex Finance</b><small>Design kit</small></span>
+    </a>
+    <nav class="kit-nav" aria-label="Design kit">
+      <a href="index.html">Overview</a>
+      <a href="system.html">Design system</a>
+      <a href="flows.html">User flows</a>
+      <a href="wireframes.html" aria-current="page">Wireframes</a>
+      <a href="designs.html">Designs</a>
+      <a href="prototype.html">Prototype</a>
+      <a href="optimizations.html">Optimizations</a>
+    </nav>
+    <div class="kit-tools">
+      <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">☾</button>
+      <a class="kit-cta" href="prototype.html">Open prototype →</a>
+    </div>
+  </div>
+</header>
+
+<main class="kit-main" id="main">
+
+  <div class="page-head">
+    <span class="eyebrow">Structure</span>
+    <h1>Fourteen frames, <span class="serif">one spine</span></h1>
+    <p class="lede">Grey boxes, real decisions. Each frame shows hierarchy and state logic without the distraction of colour; the numbered notes call out the rules that matter.</p>
+  </div>
+
+  <div class="callout">
+    <b>Lo-fi legend.</b> Dashed box = region with variable content · solid fill = fixed chrome · numbered chip = annotation. Every money screen shares the same top-to-bottom spine: context → amount → consequence → confirm.
+  </div>
+
+  <section class="section" id="auth">
+    <div class="section-head"><div><h2>A · Getting in</h2><p>Three frames, one job: get a returning user to their balance in under 30 seconds.</p></div></div>
+    <div class="wf-grid">
+
+      <article class="wf-item">
+        <header><b>01 · Splash</b><span>Entry</span></header>
+        <div class="wf">
+          <div class="bar"><span class="dot"></span><span class="dot"></span></div>
+          <div class="center" style="flex:1;align-content:center">
+            <div class="logo"></div>
+            <div class="line w40"></div>
+            <div class="line w60"></div>
+            <span class="note">apex. every naira accounted for</span>
+          </div>
+          <div class="box accent" style="text-align:center">Get started</div>
+          <div class="note" style="text-align:center">Already have an account? Sign in</div>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>Brand frame ≤ 1.2 s; no loading copy, no carousel.</span></li>
+          <li><b>2</b><span>One primary action. Sign-in is a quiet secondary link.</span></li>
+          <li><b>3</b><span>Same destination either way; only the heading changes.</span></li>
+        </ol>
+      </article>
+
+      <article class="wf-item">
+        <header><b>02 · Phone number</b><span>Auth</span></header>
+        <div class="wf">
+          <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+          <div class="line w60"></div>
+          <div class="note">We send a 6-digit code. Standard SMS rates apply.</div>
+          <div class="box solid" style="min-height:44px"><div class="line w80"></div><span class="note">+234 803 555 0147</span></div>
+          <div class="line w40"></div>
+          <div class="box accent" style="text-align:center">Send code</div>
+          <div class="note" style="text-align:center">Changed your number? Use the one on your account.</div>
+          <div class="row"><div class="line"></div><div class="line"></div></div>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>Country code is prefilled and not a second screen.</span></li>
+          <li><b>2</b><span>Validation runs on submit, not while typing; errors sit under the field.</span></li>
+          <li><b>3</b><span>Button shows "Sending code…" with a spinner; repeats are blocked.</span></li>
+        </ol>
+      </article>
+
+      <article class="wf-item">
+        <header><b>03 · Code entry</b><span>Auth</span></header>
+        <div class="wf">
+          <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+          <div class="line w60"></div>
+          <div class="row">
+            <div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div><div class="sq"></div>
+          </div>
+          <div class="note">Code sent to +234 803 555 0147 · resend in 0:28</div>
+          <div class="box accent" style="text-align:center">Verify code</div>
+          <div class="box"><span class="note">Dev hint: 123456 (hidden when SMS is configured)</span></div>
+          <div class="note" style="text-align:center">Wrong number? Go back</div>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>Six cells, one input; paste fills all; backspace walks backwards.</span></li>
+          <li><b>2</b><span>Resend is disabled with a live countdown, then becomes a link.</span></li>
+          <li><b>3</b><span>Wrong code: one shake, field error, no screen change.</span></li>
+          <li><b>4</b><span>Rate-limited: countdown replaces the button; never a generic error.</span></li>
+        </ol>
+      </article>
+
+      <article class="wf-item">
+        <header><b>04 · Overview (first run)</b><span>Home</span></header>
+        <div class="wf">
+          <div class="bar"><div class="sq"></div><span class="line w40"></span><span class="dot"></span></div>
+          <div class="box accent" style="min-height:96px">
+            <span class="note">Total balance</span>
+            <div class="line w60"></div>
+            <div class="row"><div class="pill"></div><div class="pill"></div></div>
+            <span class="tag">1</span>
+          </div>
+          <div class="grid3">
+            <div><div class="line w80"></div><span class="note">Add</span></div>
+            <div><div class="line w80"></div><span class="note">Send</span></div>
+            <div><div class="line w80"></div><span class="note">Plans</span></div>
+          </div>
+          <span class="note">Savings</span>
+          <div class="box"><div class="line w60"></div><div class="line w40"></div></div>
+          <span class="note">Recent activity</span>
+          <div class="box solid"><div class="line w80"></div></div>
+          <div class="box solid"><div class="line w60"></div></div>
+          <div class="nav"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>Zero balance is a state, not an accident: one primary "Add money".</span></li>
+          <li><b>2</b><span>Skeleton rows for ~400 ms while state loads; never a blank flash.</span></li>
+          <li><b>3</b><span>Quick actions mirror Wallet destinations, not duplicates of them.</span></li>
+          <li><b>4</b><span>Bottom nav labels always visible; active item uses weight + colour.</span></li>
+        </ol>
+      </article>
+
+    </div>
+
+    <div class="table-wrap mt-3">
+      <table class="kit-table">
+        <thead><tr><th>Interaction</th><th>Trigger</th><th>Result</th><th>Failure handling</th></tr></thead>
+        <tbody>
+          <tr><td>Send code</td><td>Phone submitted</td><td>Keypad opens on six cells</td><td>Keep number; show rate-limit countdown</td></tr>
+          <tr><td>Paste code</td><td>Clipboard paste</td><td>All six cells fill, verify enables</td><td>Allow manual correction</td></tr>
+          <tr><td>Resend</td><td>Timer reaches 0</td><td>New code; timer restarts</td><td>Same rate-limit copy</td></tr>
+          <tr><td>Verify</td><td>Six digits present</td><td>Session stored, Overview loads</td><td>Expired / wrong / offline stay on screen</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" id="money">
+    <div class="section-head"><div><h2>B · Money movement</h2><p>Funding, withdrawal and sending share one spine: amount → review → pending → receipt.</p></div></div>
+    <div class="wf-grid">
+
+      <article class="wf-item">
+        <header><b>05 · Add money</b><span>Wallet</span></header>
+        <div class="wf">
+          <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+          <div class="line w60"></div>
+          <div class="box accent" style="min-height:86px"><span class="note">₦</span><div class="line w80"></div><span class="note">Amount</span></div>
+          <div class="row"><div class="pill"></div><div class="pill"></div><div class="pill"></div><div class="pill"></div></div>
+          <span class="note">Pay from</span>
+          <div class="box solid"><div class="row"><div class="sq"></div><div class="line w60"></div></div></div>
+          <div class="box solid"><div class="row"><div class="sq"></div><div class="line w80"></div></div></div>
+          <div class="box accent" style="text-align:center">Review deposit</div>
+          <span class="note">Fee ₦0.00 · settles instantly in demo</span>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>Presets first, keyboard second; "Max" never exceeds the limit.</span></li>
+          <li><b>2</b><span>Method is a radio list with one selected; card is clearly labelled sandbox.</span></li>
+          <li><b>3</b><span>Continue is enabled during entry; validation happens on review.</span></li>
+        </ol>
+      </article>
+
+      <article class="wf-item">
+        <header><b>06 · Review</b><span>Sheet</span></header>
+        <div class="wf">
+          <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+          <div class="box solid" style="flex:1"></div>
+          <div class="box accent" style="min-height:300px">
+            <span class="note" style="display:block;text-align:center">—</span>
+            <div class="line w60" style="margin:0 auto"></div>
+            <div class="line w80"></div>
+            <div class="row"><span class="note">Amount</span><span class="note">₦50,000.00</span></div>
+            <div class="row"><span class="note">Fee</span><span class="note">₦0.00</span></div>
+            <div class="row"><span class="note">To</span><span class="note">NGN wallet</span></div>
+            <div class="box" style="text-align:center">Confirm deposit</div>
+            <div class="note" style="text-align:center">Cancel</div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>Backdrop dims to 45%; sheet is dismissible by backdrop and Esc.</span></li>
+          <li><b>2</b><span>Consequence is a fixed key-value block, not prose.</span></li>
+          <li><b>3</b><span>Confirm is the only primary; cancel is a text action.</span></li>
+          <li><b>4</b><span>Focus lands on the sheet heading; focus is trapped until closed.</span></li>
+        </ol>
+      </article>
+
+      <article class="wf-item">
+        <header><b>07 · Receipt</b><span>Success</span></header>
+        <div class="wf">
+          <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+          <div class="center">
+            <div class="fab"></div>
+            <div class="line w40"></div>
+            <div class="line w60"></div>
+          </div>
+          <div class="box solid">
+            <div class="row"><span class="note">New wallet balance</span><span class="note">₦118,400.00</span></div>
+            <div class="row"><span class="note">Reference</span><span class="note">APX-DEP-560563</span></div>
+            <div class="row"><span class="note">When</span><span class="note">Today, 09:14</span></div>
+          </div>
+          <div class="box" style="text-align:center">Done</div>
+          <div style="display:flex;gap:6px"><div class="pill"></div><div class="pill"></div></div>
+          <span class="note" style="text-align:center">Add again · View in activity</span>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>Success is confirmed by the server response, never by the tap.</span></li>
+          <li><b>2</b><span>Reference is monospace and copies on tap with a 2 s confirmation.</span></li>
+          <li><b>3</b><span>New balance is the largest number on screen — say what changed.</span></li>
+          <li><b>4</b><span>"Add again" reopens the sheet with the last amount prefilled.</span></li>
+        </ol>
+      </article>
+
+      <article class="wf-item">
+        <header><b>08 · Withdraw refused</b><span>Error</span></header>
+        <div class="wf">
+          <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+          <div class="line w60"></div>
+          <div class="box accent" style="min-height:80px"><span class="note">₦</span><div class="line w80"></div><span class="note">900,000</span></div>
+          <div class="box" style="border-style:solid;border-color:#c26a6a">
+            <span class="note">Amount is more than your available wallet balance.</span>
+          </div>
+          <div class="box solid"><div class="row"><div class="sq"></div><div class="line w60"></div></div></div>
+          <div class="note">Available ₦118,400.00 · Use max</div>
+          <div class="box" style="text-align:center">Try again</div>
+          <div class="note" style="text-align:center">Cancel</div>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>The server's sentence is shown verbatim; the client does not rephrase it.</span></li>
+          <li><b>2</b><span>Amount is preserved so the correction is a one-field edit.</span></li>
+          <li><b>3</b><span>"Use max" offers the concrete fix without clearing the form.</span></li>
+          <li><b>4</b><span>No balance movement, no optimistic deduction, no success toast.</span></li>
+        </ol>
+      </article>
+
+      <article class="wf-item">
+        <header><b>09 · Send money</b><span>Transfer</span></header>
+        <div class="wf">
+          <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+          <div class="line w60"></div>
+          <div class="box solid"><div class="row"><div class="sq"></div><div><div class="line w80"></div><span class="note">+234 803 555 0147</span></div></div></div>
+          <div class="row"><div class="pill"></div><div class="pill"></div><div class="pill"></div></div>
+          <div class="box accent" style="min-height:70px"><span class="note">₦</span><div class="line w60"></div></div>
+          <div class="box solid"><div class="line w40"></div><span class="note">Note (optional) — appears on the receipt</span></div>
+          <div class="box accent" style="text-align:center">Review transfer</div>
+          <span class="note">Money leaves your wallet instantly</span>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>Recent recipients appear before search; one tap fills the field.</span></li>
+          <li><b>2</b><span>Note is optional and capped; it becomes the receipt description.</span></li>
+          <li><b>3</b><span>Copy states the consequence before review, not after.</span></li>
+        </ol>
+      </article>
+
+    </div>
+
+    <div class="table-wrap mt-3">
+      <table class="kit-table">
+        <thead><tr><th>Interaction</th><th>Trigger</th><th>Result</th><th>Failure handling</th></tr></thead>
+        <tbody>
+          <tr><td>Confirm deposit</td><td>Review primary</td><td>Button busy → server entry → receipt</td><td>Offline banner, draft kept, retry</td></tr>
+          <tr><td>Withdraw max</td><td>Chip pressed</td><td>Available balance fills the amount</td><td>Server still re-validates</td></tr>
+          <tr><td>Copy reference</td><td>Reference tapped</td><td>Clipboard + inline "Copied"</td><td>Fallback selects the text</td></tr>
+          <tr><td>Send again</td><td>Receipt secondary</td><td>Sheet reopens, recipient kept</td><td>Amount cleared intentionally</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" id="growth">
+    <div class="section-head"><div><h2>C · Saving and investing</h2><p>Longer horizons need clearer rules: locks, progress and costs are visible before commitment.</p></div></div>
+    <div class="wf-grid">
+
+      <article class="wf-item">
+        <header><b>10 · Savings catalogue</b><span>Plans</span></header>
+        <div class="wf">
+          <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+          <div class="line w60"></div>
+          <div class="row"><div class="pill"></div><div class="pill"></div><div class="pill"></div></div>
+          <div class="box solid">
+            <div class="row"><span class="note">Rent · Fixed</span><span class="note">Locked</span></div>
+            <div class="line w60"></div>
+            <div class="line w80" style="height:4px"></div>
+            <span class="note">34% of ₦250,000 · ends 31 Dec</span>
+          </div>
+          <div class="box solid">
+            <div class="row"><span class="note">Travel · Flexible</span><span class="note">Active</span></div>
+            <div class="line w40"></div>
+            <div class="line w60" style="height:4px"></div>
+            <span class="note">48% · withdraw anytime</span>
+          </div>
+          <div class="box"><span class="note">Car · Target</span></div>
+          <div class="fab"></div>
+          <div class="nav"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>Kind is part of the card, not hidden in detail.</span></li>
+          <li><b>2</b><span>Progress answers "am I close?" in one line.</span></li>
+          <li><b>3</b><span>New plan is a floating action, reachable with one thumb.</span></li>
+        </ol>
+      </article>
+
+      <article class="wf-item">
+        <header><b>11 · Plan detail</b><span>Detail</span></header>
+        <div class="wf">
+          <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+          <div class="line w60"></div>
+          <div class="box accent" style="min-height:80px"><span class="note">Rent plan</span><div class="line w60"></div></div>
+          <div class="line w80" style="height:5px"></div>
+          <span class="note">₦85,000 of ₦250,000 · 34%</span>
+          <div class="box solid">
+            <div class="row"><span class="note">Maturity</span><span class="note">31 Dec 2026</span></div>
+            <div class="row"><span class="note">Rule</span><span class="note">Locked until maturity</span></div>
+          </div>
+          <div class="box accent" style="text-align:center">Withdraw from plan</div>
+          <div class="box" style="text-align:center">Add to plan</div>
+          <span class="note" style="text-align:center">Locked plans need a support request to break</span>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>The lock rule is stated beside the action, not discovered on tap.</span></li>
+          <li><b>2</b><span>Withdraw is primary for flexible plans; disabled with reason for fixed.</span></li>
+          <li><b>3</b><span>Maturity date uses a fixed format, never relative time.</span></li>
+        </ol>
+      </article>
+
+      <article class="wf-item">
+        <header><b>12 · Invest ticket</b><span>Invest</span></header>
+        <div class="wf">
+          <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+          <div class="row"><div class="sq"></div><div class="line w60"></div></div>
+          <div class="row"><div class="pill"></div><div class="pill"></div></div>
+          <div class="line w60"></div>
+          <span class="note">₦612.00 · +1.8% today</span>
+          <div class="box accent" style="min-height:64px"><span class="note">₦</span><div class="line w60"></div></div>
+          <div class="row"><span class="note">Units</span><span class="note">40.8</span></div>
+          <div class="box solid">
+            <div class="row"><span class="note">Estimated cost</span><span class="note">₦25,000.00</span></div>
+            <div class="row"><span class="note">Cash after</span><span class="note">₦43,400.00</span></div>
+          </div>
+          <div class="box accent" style="text-align:center">Review buy</div>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>Symbol and price lead; the form follows the quote.</span></li>
+          <li><b>2</b><span>Units and amount are two views of one value, kept in sync.</span></li>
+          <li><b>3</b><span>Cost preview updates on every keystroke; no hidden fees.</span></li>
+          <li><b>4</b><span>Sell tab reuses the layout and shows available units.</span></li>
+        </ol>
+      </article>
+
+      <article class="wf-item">
+        <header><b>13 · Activity detail</b><span>Proof</span></header>
+        <div class="wf">
+          <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+          <div class="row"><div class="pill"></div><div class="pill"></div><div class="pill"></div></div>
+          <div class="box solid"><div class="row"><div class="sq"></div><div class="line w60"></div></div></div>
+          <div class="box solid"><div class="row"><div class="sq"></div><div class="line w80"></div></div></div>
+          <div class="box solid"><div class="row"><div class="sq"></div><div class="line w60"></div></div></div>
+          <div class="box accent" style="min-height:150px">
+            <span class="note">Wallet funding</span>
+            <div class="line w60"></div>
+            <div class="row"><span class="note">Reference</span><span class="note">APX-DEP-560563</span></div>
+            <div class="row"><span class="note">Status</span><span class="note">Completed</span></div>
+            <div class="box" style="text-align:center">Copy reference</div>
+          </div>
+        </div>
+        <ol class="notes">
+          <li><b>1</b><span>Filters are chips that persist while scrolling.</span></li>
+          <li><b>2</b><span>Detail is a sheet over the list; closing restores scroll position.</span></li>
+          <li><b>3</b><span>Every row opens proof: amount, status, reference, counterparty.</span></li>
+        </ol>
+      </article>
+
+    </div>
+
+    <div class="table-wrap mt-3">
+      <table class="kit-table">
+        <thead><tr><th>Interaction</th><th>Trigger</th><th>Result</th><th>Failure handling</th></tr></thead>
+        <tbody>
+          <tr><td>Open plan</td><td>FAB → configure → confirm</td><td>Wallet and plan balances update from server</td><td>Low wallet links to Add money, draft kept</td></tr>
+          <tr><td>Plan withdrawal</td><td>Detail primary</td><td>Partial amount returns to wallet</td><td>Fixed plan: disabled with stated reason</td></tr>
+          <tr><td>Buy shares</td><td>Ticket primary</td><td>Receipt with units and cash after</td><td>Insufficient cash → field error, no deduction</td></tr>
+          <tr><td>Open receipt</td><td>Activity row</td><td>Sheet with copyable reference</td><td>Long lists virtualised later; no dead rows</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" id="desktop">
+    <div class="section-head"><div><h2>D · Desktop shell</h2><p>The same spine, wider: a persistent rail for destinations, content in a two-column canvas, money actions as centred dialogs.</p></div></div>
+    <div class="wf-item">
+      <header><b>14 · Desktop overview</b><span>1280 × 800</span></header>
+      <div class="wf wf-desk">
+        <div class="bar"><span class="line w40"></span><span class="dot"></span></div>
+        <div class="split">
+          <div class="rail">
+            <span style="height:16px;border-radius:6px"></span>
+            <span style="margin-top:10px;height:8px"></span>
+            <span style="height:8px"></span>
+            <span style="height:8px"></span>
+            <span style="height:8px"></span>
+            <span style="height:8px"></span>
+            <span style="margin-top:auto;height:20px;border-radius:6px"></span>
+          </div>
+          <div class="canvas">
+            <div class="row"><div class="line w40"></div><div class="pill"></div></div>
+            <div class="grid3">
+              <div class="box accent" style="min-height:70px"><div class="line w60"></div></div>
+              <div class="box solid" style="min-height:70px"></div>
+              <div class="box solid" style="min-height:70px"></div>
+            </div>
+            <div class="row">
+              <div class="box solid" style="flex:1.5;min-height:130px"></div>
+              <div class="box solid" style="flex:1;min-height:130px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ol class="notes">
+        <li><b>1</b><span>Rail holds all six destinations plus identity; content never scrolls it.</span></li>
+        <li><b>2</b><span>Balance KPI is the visual anchor, followed by a chart and recent money.</span></li>
+        <li><b>3</b><span>Quick actions open centred dialogs, not sheets, at ≥ 1024 px.</span></li>
+        <li><b>4</b><span>Search is global and keyboard-first (<span class="kbd">/</span> focuses it).</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <div class="link-row">
+    <a class="btn-link solid" href="designs.html">Next: high-fidelity designs →</a>
+    <a class="btn-link" href="prototype.html">Click the flows instead</a>
+  </div>
+
+</main>
+
+<footer class="kit-footer">
+  <span>Apex Finance design kit · <span data-year></span> · Built from the live product</span>
+  <span><a href="prototype.html">Prototype</a> · <a href="optimizations.html">Backlog</a></span>
+</footer>
+
+<script src="kit.js"></script>
+</body>
+</html>

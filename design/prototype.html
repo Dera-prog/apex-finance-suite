@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Interactive prototype — Apex Finance</title>
+<meta name="description" content="Clickable Apex Finance prototype: sign-in, funding, withdrawal, transfers, plans and investing with pending, rejection and offline states." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&family=Instrument+Serif:ital@0;1&family=Cascadia+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="prototype.css" />
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="kit-header">
+  <div class="kit-bar">
+    <a class="kit-brand" href="index.html">
+      <span class="kit-mark" aria-hidden="true"></span>
+      <span><b>Apex Finance</b><small>Design kit</small></span>
+    </a>
+    <nav class="kit-nav" aria-label="Design kit">
+      <a href="index.html">Overview</a>
+      <a href="system.html">Design system</a>
+      <a href="flows.html">User flows</a>
+      <a href="wireframes.html">Wireframes</a>
+      <a href="designs.html">Designs</a>
+      <a href="prototype.html" aria-current="page">Prototype</a>
+      <a href="optimizations.html">Optimizations</a>
+    </nav>
+    <div class="kit-tools">
+      <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">☾</button>
+      <a class="kit-cta" href="prototype.html">Open prototype →</a>
+    </div>
+  </div>
+</header>
+
+<main class="kit-main" id="main">
+
+  <div class="page-head">
+    <span class="eyebrow">Evidence</span>
+    <h1>Click the money, <span class="serif">not a picture</span></h1>
+    <p class="lede">A working phone app for the whole money story. Sign in, fund, withdraw, send, open a plan and buy shares — then break it on purpose with the Offline and Slow network switches and watch the interface refuse honestly.</p>
+  </div>
+
+  <div class="proto-layout">
+    <div class="proto-stage">
+      <div class="device ap" id="device">
+        <div class="screen" id="screen" aria-live="polite"></div>
+      </div>
+      <div class="flowmap" aria-label="Related pages">
+        <a href="flows.html">Flows</a>
+        <a href="wireframes.html">Wireframes</a>
+        <a href="designs.html">Designs</a>
+        <a href="optimizations.html">Backlog</a>
+        <a href="#" data-reset>Reset demo</a>
+      </div>
+      <p class="hint" style="text-align:center;max-width:46ch">Everything runs locally. Balances and references are simulated the way the ledger behaves: a write either posts an entry or returns a refusal — never a silent success.</p>
+    </div>
+
+    <aside class="proto-controls" aria-label="Prototype controls">
+      <h3>Prototype controls</h3>
+      <p class="hint">Use these to show the resilience states in a review.</p>
+
+      <div class="ctrl-row">
+        <span>Theme</span>
+        <button class="switch" type="button" role="switch" aria-checked="false" data-switch-theme aria-label="Dark theme"></button>
+      </div>
+      <div class="ctrl-row">
+        <span>Offline</span>
+        <button class="switch" type="button" role="switch" aria-checked="false" data-switch="offline" aria-label="Simulate offline"></button>
+      </div>
+      <div class="ctrl-row">
+        <span>Slow network</span>
+        <button class="switch" type="button" role="switch" aria-checked="false" data-switch="slow" aria-label="Simulate slow network"></button>
+      </div>
+
+      <div class="ctrl-row" style="border-top:1px solid var(--line);padding-top:12px">
+        <span>Session</span>
+        <button class="ap-btn sm ghost" type="button" data-reset>Reset</button>
+      </div>
+
+      <div>
+        <span class="hint" style="display:block;margin-bottom:6px"><b>Jump to</b></span>
+        <div class="flowmap">
+          <a href="#" data-jump="splash">Splash</a>
+          <a href="#" data-jump="home">Home</a>
+          <a href="#" data-jump="wallet">Wallet</a>
+          <a href="#" data-jump="plans">Plans</a>
+          <a href="#" data-jump="invest">Invest</a>
+          <a href="#" data-jump="activity">Activity</a>
+        </div>
+        <p class="hint" style="margin-top:6px">Jumping signs you in unless you pick Splash.</p>
+      </div>
+
+      <div>
+        <span class="hint" style="display:block;margin-bottom:6px"><b>Event log</b></span>
+        <div class="proto-log" id="log" aria-live="polite"></div>
+      </div>
+    </aside>
+  </div>
+
+</main>
+
+<footer class="kit-footer">
+  <span>Apex Finance design kit · <span data-year></span> · Built from the live product</span>
+  <span><a href="index.html">Overview</a> · <a href="optimizations.html">Backlog</a></span>
+</footer>
+
+<script src="kit.js"></script>
+<script src="prototype.js"></script>
+</body>
+</html>

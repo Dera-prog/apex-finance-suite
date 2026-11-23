@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Design system — Apex Finance</title>
+<meta name="description" content="Apex Finance design tokens and components for light and dark themes." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&family=Instrument+Serif:ital@0;1&family=Cascadia+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="kit-header">
+  <div class="kit-bar">
+    <a class="kit-brand" href="index.html">
+      <span class="kit-mark" aria-hidden="true"></span>
+      <span><b>Apex Finance</b><small>Design kit</small></span>
+    </a>
+    <nav class="kit-nav" aria-label="Design kit">
+      <a href="index.html">Overview</a>
+      <a href="system.html" aria-current="page">Design system</a>
+      <a href="flows.html">User flows</a>
+      <a href="wireframes.html">Wireframes</a>
+      <a href="designs.html">Designs</a>
+      <a href="prototype.html">Prototype</a>
+      <a href="optimizations.html">Optimizations</a>
+    </nav>
+    <div class="kit-tools">
+      <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">☾</button>
+      <a class="kit-cta" href="prototype.html">Open prototype →</a>
+    </div>
+  </div>
+</header>
+
+<main class="kit-main" id="main">
+
+  <div class="page-head">
+    <span class="eyebrow">Foundations</span>
+    <h1>One system, <span class="serif">two moods</span></h1>
+    <p class="lede">The tokens below are the ones shipped in the apps. Toggle the theme to see every component repaint — dark mode is a deep royal blue place, not an inverted light theme.</p>
+  </div>
+
+  <section class="section mt-0">
+    <div class="section-head">
+      <div><h2>Colour</h2><p>Neutrals carry the layout; royal blue is reserved for action and emphasis. Green means money in, red means refusal.</p></div>
+      <span class="hint">Values update with the theme</span>
+    </div>
+    <div class="swatches" id="swatches"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><div><h2>Type</h2><p>Sora for titles and money, Manrope for UI, Instrument Serif italic for editorial accents. Numbers are tabular everywhere money appears.</p></div></div>
+    <div class="grid two">
+      <div class="panel">
+        <div class="type-scale">
+          <div><span class="demo" style="font-size:46px;font-weight:700">₦268,400.00</span><small>Sora 700 · 46 · display</small></div>
+          <div><span class="demo" style="font-size:30px;font-weight:700">Save with intent</span><small>Sora 700 · 30 · h1</small></div>
+          <div><span class="demo" style="font-size:21px;font-weight:600">Recent activity</span><small>Sora 600 · 21 · h2</small></div>
+          <div><span class="demo" style="font-size:15px;font-weight:600">Add money</span><small>Sora 600 · 15 · h3</small></div>
+          <div><span style="font-size:14px;font-weight:650">Amount is more than your available wallet balance.</span><small>Manrope 650 · 14 · body-strong</small></div>
+          <div><span style="font-size:12.5px;color:var(--ink-500)">Funded from your linked bank. No fee in this demo.</span><small>Manrope 500 · 12.5 · body-muted</small></div>
+          <div><span style="font-family:var(--font-serif);font-style:italic;font-size:30px;color:var(--blue-600)">every naira, accounted for</span><small>Instrument Serif italic · 30 · accent</small></div>
+          <div><span style="font-family:var(--mono);font-size:12px">APX-DEP-560563</span><small>Cascadia Mono · 12 · reference</small></div>
+        </div>
+      </div>
+      <div class="panel">
+        <span class="kicker">Rules</span>
+        <ul class="checklist">
+          <li>Money uses tabular figures and two decimals, always: ₦268,400.00.</li>
+          <li>Amounts ≥ ₦100,000 keep grouping commas; the currency symbol never wraps.</li>
+          <li>Negative balances are shown with a minus and red, never brackets.</li>
+          <li>Serif italic is a garnish — one phrase per screen at most.</li>
+          <li>References are mono, uppercase, and copyable by tap or click.</li>
+          <li>Body copy sits at ≥ 4.5:1 contrast in both themes; muted labels at ≥ 4.5:1 on surfaces.</li>
+        </ul>
+        <div class="callout mt-2">Spacing: 4 · 8 · 12 · 16 · 22 · 30. Radii: 8 · 12 · 16 · 22 · 30 · pill. Tap targets stay ≥ 44 × 44 px.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section ap">
+    <div class="section-head"><div><h2>Components</h2><p>The exact elements used by the wireframes, designs and prototype.</p></div></div>
+
+    <div class="grid two">
+      <div class="panel">
+        <span class="kicker">Buttons</span>
+        <div class="component-row">
+          <button class="ap-btn primary">Add money</button>
+          <button class="ap-btn ghost">Withdraw</button>
+          <button class="ap-btn soft">Send money</button>
+          <button class="ap-btn danger">Break plan</button>
+          <button class="ap-btn ghost" disabled>Disabled</button>
+        </div>
+        <div class="component-row mt-2">
+          <button class="ap-btn primary" aria-busy="true"><span class="ap-spinner"></span> Sending…</button>
+          <button class="ap-btn sm primary">Small</button>
+          <button class="ap-btn sm ghost">Small ghost</button>
+        </div>
+        <p class="ap-help mt-2">One primary action per view. Busy buttons keep their width, swap the icon for a spinner and disable input.</p>
+      </div>
+
+      <div class="panel">
+        <span class="kicker">Fields</span>
+        <div class="ap-field">
+          <label for="demo-phone">Phone number</label>
+          <input class="ap-input" id="demo-phone" value="+234 803 555 0147" />
+          <span class="ap-help">We send a 6-digit code. Standard SMS rates apply.</span>
+        </div>
+        <div class="ap-field mt-2">
+          <label for="demo-amount">Amount</label>
+          <input class="ap-input error" id="demo-amount" value="₦900,000.00" aria-invalid="true" aria-describedby="demo-amount-err" />
+          <span class="ap-help error" id="demo-amount-err">Amount is more than your available wallet balance.</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <span class="kicker">Amount entry</span>
+        <div class="ap-amount">
+          <span class="cur">₦</span>
+          <input inputmode="decimal" placeholder="0.00" aria-label="Amount in naira" value="25,000" />
+        </div>
+        <div class="ap-chip-row mt-2">
+          <button class="ap-chip">₦5,000</button>
+          <button class="ap-chip" aria-pressed="true">₦25,000</button>
+          <button class="ap-chip">₦50,000</button>
+          <button class="ap-chip">Max</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <span class="kicker">Status</span>
+        <div class="component-row">
+          <span class="ap-status">Completed</span>
+          <span class="ap-status pending">Pending</span>
+          <span class="ap-status failed">Failed</span>
+          <span class="ap-status neutral">Draft</span>
+        </div>
+        <div class="component-row mt-2">
+          <span class="tag">Fixed plan</span>
+          <span class="tag green">+12.4%</span>
+          <span class="tag amber">KYC pending</span>
+          <span class="tag muted">NGN</span>
+        </div>
+        <p class="ap-help mt-2">Status is a word plus a dot. Colour never carries the meaning alone.</p>
+      </div>
+
+      <div class="panel">
+        <span class="kicker">Transaction row</span>
+        <div class="ap-row">
+          <span class="ico">↑</span>
+          <span class="who"><b>Rent plan</b><span>Today · 09:14 · Fixed</span></span>
+          <span class="amt">−₦10,000.00<small>Completed</small></span>
+        </div>
+        <div class="ap-row">
+          <span class="ico">↓</span>
+          <span class="who"><b>Wallet funding</b><span>Yesterday · 18:02</span></span>
+          <span class="amt" style="color:var(--green-700)">+₦50,000.00<small>Completed</small></span>
+        </div>
+        <div class="ap-row">
+          <span class="ico">→</span>
+          <span class="who"><b>Transfer to Ada</b><span>Mon · 12:40</span></span>
+          <span class="amt">−₦5,000.00<small class="ap-status pending" style="display:inline-flex;margin-top:3px">Pending</small></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <span class="kicker">Feedback</span>
+        <div class="ap-banner"><span aria-hidden="true">!</span><span>You are offline. Sending money needs a connection — nothing was deducted.</span></div>
+        <div class="ap-skeleton mt-2" style="height:12px;width:70%"></div>
+        <div class="ap-skeleton mt-1" style="height:12px;width:45%"></div>
+        <div class="ap-empty mt-2">
+          <span class="art" aria-hidden="true">◎</span>
+          <b>No transactions yet</b>
+          <p>Your receipts will appear here after your first deposit.</p>
+          <button class="ap-btn sm primary mt-1">Add money</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid two mt-3">
+      <div class="panel">
+        <span class="kicker">Balance card</span>
+        <div class="ap-balance">
+          <span class="tiny">Total balance</span>
+          <div class="big">₦268,400.00</div>
+          <span class="sub">Wallet ₦68,400.00 · Plans ₦200,000.00</span>
+          <div class="row">
+            <button class="ap-btn">Add money</button>
+            <button class="ap-btn">Withdraw</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <span class="kicker">Plan card</span>
+        <div class="ap-plan">
+          <div class="head"><b>Rent · Fixed</b><span class="ap-status pending">Locked</span></div>
+          <div class="amt">₦85,000.00</div>
+          <div class="ap-progress"><i style="width:34%"></i></div>
+          <span class="ap-help">34% of ₦250,000 goal · ends 31 Dec</span>
+        </div>
+        <div class="ap-plan mt-2">
+          <div class="head"><b>Travel · Flexible</b><span class="ap-status">Active</span></div>
+          <div class="amt">₦72,000.00</div>
+          <div class="ap-progress"><i style="width:48%"></i></div>
+          <span class="ap-help">48% of ₦150,000 goal · withdraw anytime</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel mt-3">
+      <span class="kicker">Bottom navigation</span>
+      <div class="ap-nav" style="border:1px solid var(--line);border-radius:18px">
+        <button aria-current="page"><span class="ni">⌂</span>Home</button>
+        <button><span class="ni">◫</span>Wallet</button>
+        <button><span class="ni">◎</span>Plans</button>
+        <button><span class="ni">◔</span>Invest</button>
+        <button><span class="ni">☰</span>Activity</button>
+      </div>
+      <p class="ap-help mt-2">Five destinations, 48 px tall, labels always visible. The active item is royal blue; icons are decorative and aria-hidden.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><div><h2>Motion</h2><p>Fast, small, and never in the way of a receipt.</p></div></div>
+    <div class="grid three">
+      <div class="panel"><span class="kicker">Sheets</span><h3>220 ms ease-out</h3><p>Bottom sheets rise 8 px and fade. Backdrop dims to 45%; Esc and backdrop tap both close.</p></div>
+      <div class="panel"><span class="kicker">Press</span><h3>120 ms scale 0.985</h3><p>Buttons acknowledge touch without bouncing. No ripple.</p></div>
+      <div class="panel"><span class="kicker">Reduced motion</span><h3>Instant states</h3><p>Respect <code>prefers-reduced-motion</code>: transitions drop to 0 ms, spinners still indicate progress.</p></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="kit-footer">
+  <span>Apex Finance design kit · <span data-year></span> · Built from the live product</span>
+  <span><a href="prototype.html">Prototype</a> · <a href="optimizations.html">Backlog</a></span>
+</footer>
+
+<script src="kit.js"></script>
+<script>
+  (function () {
+    const tokens = [
+      ['Page', '--surface'], ['Card', '--white'], ['Soft surface', '--surface-soft'],
+      ['Ink 900', '--ink-900'], ['Ink 600', '--ink-600'], ['Ink 400', '--ink-400'],
+      ['Line', '--line'], ['Royal 600', '--blue-600'], ['Royal 500', '--blue-500'],
+      ['Royal 50', '--blue-50'], ['Green 500', '--green-500'], ['Green 50', '--green-50'],
+      ['Amber 100', '--amber-100'], ['Red 600', '--red-600'], ['Red 50', '--red-50'], ['Cream', '--cream']
+    ];
+    const host = document.getElementById('swatches');
+    function render() {
+      const css = getComputedStyle(document.documentElement);
+      host.innerHTML = tokens.map(function (t) {
+        const val = css.getPropertyValue(t[1]).trim();
+        return '<div class="swatch"><div class="chip" style="background:var(' + t[1] + ')"></div>' +
+          '<div class="meta"><b>' + t[0] + '</b><span>' + val + '</span></div></div>';
+      }).join('');
+    }
+    render();
+    document.addEventListener('apex:theme', render);
+  })();
+</script>
+</body>
+</html>

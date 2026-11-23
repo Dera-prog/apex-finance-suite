@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Optimisation backlog — Apex Finance</title>
+<meta name="description" content="Prioritised UX optimisations for Apex Finance with acceptance criteria." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&family=Instrument+Serif:ital@0;1&family=Cascadia+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="kit-header">
+  <div class="kit-bar">
+    <a class="kit-brand" href="index.html">
+      <span class="kit-mark" aria-hidden="true"></span>
+      <span><b>Apex Finance</b><small>Design kit</small></span>
+    </a>
+    <nav class="kit-nav" aria-label="Design kit">
+      <a href="index.html">Overview</a>
+      <a href="system.html">Design system</a>
+      <a href="flows.html">User flows</a>
+      <a href="wireframes.html">Wireframes</a>
+      <a href="designs.html">Designs</a>
+      <a href="prototype.html">Prototype</a>
+      <a href="optimizations.html" aria-current="page">Optimizations</a>
+    </nav>
+    <div class="kit-tools">
+      <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">☾</button>
+      <a class="kit-cta" href="prototype.html">Open prototype →</a>
+    </div>
+  </div>
+</header>
+
+<main class="kit-main" id="main">
+
+  <div class="page-head">
+    <span class="eyebrow">Next</span>
+    <h1>Fourteen fixes, ranked by <span class="serif">trust</span></h1>
+    <p class="lede">Ordered by how much each one protects a user's confidence in their money. Each card states the problem, the pattern, and the acceptance test that closes it. Several are already in the shipped client; the rest are scoped for the next pass.</p>
+  </div>
+
+  <div class="callout">
+    <b>Priority key.</b> <span class="tag red">P0</span> — a user could be misled about money. <span class="tag amber">P1</span> — friction that costs completion. <span class="tag">P2</span> — polish with measurable payoff.
+  </div>
+
+  <section class="section" id="p0">
+    <div class="section-head"><div><h2>P0 · Never lie about money</h2><p>These five close the gap between what the screen says and what the ledger knows.</p></div></div>
+    <div class="grid two">
+
+      <article class="opt">
+        <header><h3>01 · One submitting model for every write</h3><span class="tag red pr">P0</span></header>
+        <p>Six different money actions used to manage their own busy flags, some with double-submit windows. One shared state machine removes the class of bug.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>Tap twice → two deposits</div>
+          <div class="a"><small>After</small>Locked on first press, spinner + label</div>
+        </div>
+        <div class="accept"><b>Acceptance</b>All seven write endpoints share a submit guard; a rapid double-tap in any flow produces exactly one ledger entry; the button exposes <code>aria-busy</code>.</div>
+      </article>
+
+      <article class="opt">
+        <header><h3>02 · Offline means refused, not failed</h3><span class="tag red pr">P0</span></header>
+        <p>A dead server behind a proxy returns HTML, which used to read as a generic rejection. It must say the server was unreachable and confirm nothing moved.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>"That did not go through."</div>
+          <div class="a"><small>Shipped</small>"Could not reach the Apex server. Check your connection and try again."</div>
+        </div>
+        <div class="accept"><b>Acceptance</b>502/503/504 and non-JSON responses classify as offline; balance unchanged; the entered amount survives; a banner appears above the action.</div>
+      </article>
+
+      <article class="opt">
+        <header><h3>03 · The server's sentence is the error</h3><span class="tag red pr">P0</span></header>
+        <p>Client-side copies drift from the real rules. Show the ledger's own refusal where the action lives, in the user's language.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>"Something went wrong."</div>
+          <div class="a"><small>After</small>"Amount is more than your available wallet balance."</div>
+        </div>
+        <div class="accept"><b>Acceptance</b>Every 400 body with a message renders under its field or on its sheet verbatim; the draft is preserved; no balance changes.</div>
+      </article>
+
+      <article class="opt">
+        <header><h3>04 · Receipts with a copyable reference</h3><span class="tag red pr">P0</span></header>
+        <p>"Success" is not proof. A receipt names the new balance, the counterparty and a reference support can trace.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>Toast disappears in 2 s</div>
+          <div class="a"><small>After</small>Receipt screen + reference + new balance</div>
+        </div>
+        <div class="accept"><b>Acceptance</b>Every successful write ends on a receipt with server reference; copy action confirms for 2 s; the same entry appears in Activity within one navigation.</div>
+      </article>
+
+      <article class="opt">
+        <header><h3>05 · Session expiry never eats the draft</h3><span class="tag red pr">P0</span></header>
+        <p>Sessions last 30 days, but when they end mid-flow the user should re-authenticate in place, not restart the transfer.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>401 → generic error</div>
+          <div class="a"><small>After</small>"Sign in again" sheet → resume draft</div>
+        </div>
+        <div class="accept"><b>Acceptance</b>A 401 opens the OTP sheet over the current screen; after verification the original action retries with the same payload; no duplicate entry.</div>
+      </article>
+
+    </div>
+  </section>
+
+  <section class="section" id="p1">
+    <div class="section-head"><div><h2>P1 · Remove the friction</h2><p>Completion and clarity fixes, mostly copy, layout and input behaviour.</p></div></div>
+    <div class="grid two">
+
+      <article class="opt">
+        <header><h3>06 · Plan locks announced before commitment</h3><span class="tag amber pr">P1</span></header>
+        <p>Fixed plans are a promise, not a surprise. The lock and maturity date belong on the configure sheet, before the first naira moves.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>Discover the lock on detail</div>
+          <div class="a"><small>After</small>Rule + date on configure, then progress on detail</div>
+        </div>
+        <div class="accept"><b>Acceptance</b>Opening a fixed plan shows the maturity date and lock rule before confirm; the disabled withdrawal explains why in one sentence.</div>
+      </article>
+
+      <article class="opt">
+        <header><h3>07 · Amount entry that respects limits</h3><span class="tag amber pr">P1</span></header>
+        <p>Presets, a Max that equals the real available amount, and decimal handling that never produces kobo the ledger rejects.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>Free text, silent truncation</div>
+          <div class="a"><small>After</small>Presets + Max + live "Available ₦68,400.00"</div>
+        </div>
+        <div class="accept"><b>Acceptance</b>Max fills the exact server-owned balance; inputs accept kobo; values under ₦100 or over the tier limit explain themselves inline.</div>
+      </article>
+
+      <article class="opt">
+        <header><h3>08 · Empty states with one clear next step</h3><span class="tag amber pr">P1</span></header>
+        <p>A zero balance is the most common new-user state; it should teach, not look broken.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>Blank activity list</div>
+          <div class="a"><small>After</small>Illustration + "Add money" + what will appear</div>
+        </div>
+        <div class="accept"><b>Acceptance</b>Wallet, Activity and Plans each have a dedicated empty state with a primary action that opens the right flow.</div>
+      </article>
+
+      <article class="opt">
+        <header><h3>09 · OTP ergonomics</h3><span class="tag amber pr">P1</span></header>
+        <p>Six cells that accept a paste, walk backwards on delete, and show the resend countdown before the user asks.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>Retype all six after one mistake</div>
+          <div class="a"><small>After</small>Paste fills, errors shake once, timer visible</div>
+        </div>
+        <div class="accept"><b>Acceptance</b>Pasting a 6-digit SMS fills every cell; wrong code keeps the digits for correction; rate-limit copy includes the wait time.</div>
+      </article>
+
+      <article class="opt">
+        <header><h3>10 · Sync, stated once</h3><span class="tag amber pr">P1</span></header>
+        <p>Because balances are server-owned, a small "Updated just now · synced" line on Overview and Wallet explains why another device agrees.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>Unknown freshness</div>
+          <div class="a"><small>After</small>"Updated just now" beside the balance</div>
+        </div>
+        <div class="accept"><b>Acceptance</b>Timestamp updates on every successful read; stale (&gt; 60 s) reads show "Refreshing…" and retry silently once.</div>
+      </article>
+
+      <article class="opt">
+        <header><h3>11 · Sheets behave like sheets</h3><span class="tag amber pr">P1</span></header>
+        <p>Review and receipt surfaces get focus management, Esc/backdrop dismissal, and a visible grab handle.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>Focus stays behind the modal</div>
+          <div class="a"><small>After</small>Trapped focus, Esc closes, focus returns</div>
+        </div>
+        <div class="accept"><b>Acceptance</b>Keyboard focus is trapped while open and restored to the trigger on close; Esc and backdrop both dismiss; heading receives focus on open.</div>
+      </article>
+
+    </div>
+  </section>
+
+  <section class="section" id="p2">
+    <div class="section-head"><div><h2>P2 · Polish with payoff</h2><p>Cheap wins once the trust layer is solid.</p></div></div>
+    <div class="grid three">
+      <article class="opt">
+        <header><h3>12 · Activity that remembers</h3><span class="tag pr">P2</span></header>
+        <p>Keep the chosen filter and search across visits, and restore scroll when a receipt sheet closes.</p>
+        <div class="accept"><b>Acceptance</b>Returning to Activity restores the last filter and query; closing a detail sheet returns to the same scroll offset.</div>
+      </article>
+      <article class="opt">
+        <header><h3>13 · Biometric unlock on mobile</h3><span class="tag pr">P2</span></header>
+        <p>The mobile app already ships a passkey module; surface it as an opt-in unlock for returning sessions.</p>
+        <div class="accept"><b>Acceptance</b>Users can enable Face/Touch unlock after OTP; failure falls back to the OTP sheet without losing the session.</div>
+      </article>
+      <article class="opt">
+        <header><h3>14 · Follow the system theme</h3><span class="tag pr">P2</span></header>
+        <p>Add a "System" option beside Light and Dark, applied before first paint on both apps.</p>
+        <div class="accept"><b>Acceptance</b>System preference is honoured on first load with no light flash; manual choice still wins and persists.</div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="roadmap">
+    <div class="section-head"><div><h2>Suggested sequence</h2><p>Two short iterations, each ending in something demonstrable on the live build.</p></div></div>
+    <div class="table-wrap">
+      <table class="kit-table">
+        <thead><tr><th>Iteration</th><th>Ships</th><th>Proves</th><th>Depends on</th></tr></thead>
+        <tbody>
+          <tr><td>Now</td><td>01–05 · submitting model, offline, server copy, receipts, session recovery</td><td>No false success; every refusal is actionable</td><td>None — client only</td></tr>
+          <tr><td>Next</td><td>06–11 · locks, amount entry, empty states, OTP, sync line, sheet a11y</td><td>First-deposit and plan-open completion improve</td><td>Shipped endpoints</td></tr>
+          <tr><td>Later</td><td>12–14 · activity memory, biometrics, system theme</td><td>Returning-user speed and comfort</td><td>Passkey module; theme tokens</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid three mt-3">
+      <div class="panel"><span class="kicker">Measure</span><h3>Task success</h3><p>Instrument deposit, transfer and plan-open completion per session; watch the drop-off after the first refusal.</p></div>
+      <div class="panel"><span class="kicker">Measure</span><h3>Time to proof</h3><p>Median seconds from app open to a receipt, split by returning and new users.</p></div>
+      <div class="panel"><span class="kicker">Measure</span><h3>Support traces</h3><p>Count messages containing a reference or "did it go through" — the P0 set should reduce these.</p></div>
+    </div>
+  </section>
+
+  <div class="link-row">
+    <a class="btn-link solid" href="prototype.html">Test these in the prototype →</a>
+    <a class="btn-link" href="flows.html">Back to flows</a>
+  </div>
+
+</main>
+
+<footer class="kit-footer">
+  <span>Apex Finance design kit · <span data-year></span> · Built from the live product</span>
+  <span><a href="prototype.html">Prototype</a> · <a href="designs.html">Designs</a></span>
+</footer>
+
+<script src="kit.js"></script>
+</body>
+</html>

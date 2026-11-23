@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>User flows — Apex Finance</title>
+<meta name="description" content="Sign-in, funding, withdrawal, transfer, plan and investing flows for Apex Finance, including failure branches." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&family=Instrument+Serif:ital@0;1&family=Cascadia+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="kit-header">
+  <div class="kit-bar">
+    <a class="kit-brand" href="index.html">
+      <span class="kit-mark" aria-hidden="true"></span>
+      <span><b>Apex Finance</b><small>Design kit</small></span>
+    </a>
+    <nav class="kit-nav" aria-label="Design kit">
+      <a href="index.html">Overview</a>
+      <a href="system.html">Design system</a>
+      <a href="flows.html" aria-current="page">User flows</a>
+      <a href="wireframes.html">Wireframes</a>
+      <a href="designs.html">Designs</a>
+      <a href="prototype.html">Prototype</a>
+      <a href="optimizations.html">Optimizations</a>
+    </nav>
+    <div class="kit-tools">
+      <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">☾</button>
+      <a class="kit-cta" href="prototype.html">Open prototype →</a>
+    </div>
+  </div>
+</header>
+
+<main class="kit-main" id="main">
+
+  <div class="page-head">
+    <span class="eyebrow">Behaviour</span>
+    <h1>Flows that survive <span class="serif">the real world</span></h1>
+    <p class="lede">Seven journeys, each mapped with the branch engineers usually find in production: expired codes, server refusals, dead connections, locked plans. Every write ends in either a server receipt or an explicit refusal — never a silent success.</p>
+  </div>
+
+  <div class="callout">
+    <b>Reading the diagrams.</b> The numbered track is the happy path. Dashed branches underneath are alternative outcomes; steps marked <span class="tag red">fail</span> are recoverable dead-ends that must offer a way back without losing the entered amount.
+  </div>
+
+  <section class="section" id="signin">
+    <article class="flow-card">
+      <div class="flow-head">
+        <h3>1 · Sign in with a phone code</h3>
+        <div><span class="tag muted">First visit + returning</span> <span class="tag">Session 30 days</span></div>
+      </div>
+      <div class="flow-track">
+        <div class="flow-step"><span class="num">1</span><div class="body"><b>Splash</b><span>Brand frame, then a single "Get started" action.</span></div></div>
+        <div class="flow-step"><span class="num">2</span><div class="body"><b>Phone entry</b><span>Country prefilled (+234), digit validation, "Send code".</span></div></div>
+        <div class="flow-step"><span class="num">3</span><div class="body"><b>Code entry</b><span>6 cells, paste-to-fill, 30 s resend timer, "Verify".</span></div></div>
+        <div class="flow-step"><span class="num">4</span><div class="body"><b>Session stored</b><span>Token saved; new phones get a zeroed ledger owner.</span></div></div>
+        <div class="flow-step end"><span class="num">5</span><div class="body"><b>Overview</b><span>Balance skeleton for ~400 ms, then server state.</span></div></div>
+      </div>
+      <div class="flow-branch">
+        <b>Branches</b>
+        <div class="row"><i>↳</i><span><b>Wrong or expired code:</b> cells shake once, inline "That code has expired. Request a new one." Timer resets to 0.</span></div>
+        <div class="row"><i>↳</i><span><b>Rate limited (40 verifies / 10 min):</b> "Too many attempts. Try again in 4 minutes." Submit disabled, countdown visible.</span></div>
+        <div class="row"><i>↳</i><span><b>Offline:</b> "Could not reach the Apex server." Primary becomes "Try again"; the phone number is kept.</span></div>
+        <div class="row"><i>↳</i><span><b>No SMS provider configured (dev):</b> a dismissible hint shows the code in-app; production hides it.</span></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="section" id="fund">
+    <article class="flow-card">
+      <div class="flow-head">
+        <h3>2 · Fund the wallet</h3>
+        <div><span class="tag muted">Demo credit</span> <span class="tag amber">Paystack sandbox</span></div>
+      </div>
+      <div class="flow-track">
+        <div class="flow-step"><span class="num">1</span><div class="body"><b>Add money</b><span>Amount field + presets; method: linked bank (demo) or card.</span></div></div>
+        <div class="flow-step"><span class="num">2</span><div class="body"><b>Review</b><span>Amount, fee ₦0.00, destination wallet, "Confirm".</span></div></div>
+        <div class="flow-step"><span class="num">3</span><div class="body"><b>Submitting</b><span>Button spinner, inputs frozen, draft retained on failure.</span></div></div>
+        <div class="flow-step"><span class="num">4</span><div class="body"><b>Ledger entry</b><span><code>POST /api/deposit</code> → <code>APX-DEP-…</code></span></div></div>
+        <div class="flow-step end"><span class="num">5</span><div class="body"><b>Receipt</b><span>New balance, reference with copy, "Done" / "Add again".</span></div></div>
+      </div>
+      <div class="flow-branch">
+        <b>Card branch (sandbox)</b>
+        <div class="row"><i>↳</i><span><code>POST /api/payments/checkout</code> opens Paystack's hosted page. The app shows "Waiting for your bank…" and polls nothing — the signed webhook books <code>PSK-…</code>, then the app re-reads state on return.</span></div>
+        <div class="row"><i>↳</i><span><b>Payment abandoned:</b> returning to the app shows an unpaid state and leaves the balance untouched; retry reuses a fresh reference.</span></div>
+        <div class="row"><i>↳</i><span><b>Amount outside ₦100–₦10,000,000:</b> server refuses; message appears under the field.</span></div>
+        <div class="row"><i>↳</i><span><b>Duplicate webhook:</b> the <code>PSK-</code> reference is idempotent; the receipt shows once.</span></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="section" id="withdraw">
+    <article class="flow-card">
+      <div class="flow-head">
+        <h3>3 · Withdraw to a bank</h3>
+        <div><span class="tag muted">Server-enforced balance</span> <span class="tag">Wallet only</span></div>
+      </div>
+      <div class="flow-track">
+        <div class="flow-step"><span class="num">1</span><div class="body"><b>Amount</b><span>Available shown above the field; "Max" never exceeds it.</span></div></div>
+        <div class="flow-step"><span class="num">2</span><div class="body"><b>Destination</b><span>Saved account or add one; name is verified before confirm.</span></div></div>
+        <div class="flow-step"><span class="num">3</span><div class="body"><b>Review</b><span>"₦20,000.00 to GTBank · Ada Obi", one-time confirm.</span></div></div>
+        <div class="flow-step"><span class="num">4</span><div class="body"><b>Server check</b><span>Ledger re-validates balance; client is not trusted.</span></div></div>
+        <div class="flow-step end"><span class="num">5</span><div class="body"><b>Receipt</b><span>Balance already reduced; reference <code>APX-WDR-…</code>.</span></div></div>
+        <div class="flow-step fail"><span class="num">!</span><div class="body"><b>Server refusal</b><span>"Amount is more than your available wallet balance."</span></div></div>
+      </div>
+      <div class="flow-branch">
+        <b>Rules</b>
+        <div class="row"><i>↳</i><span>The button stays enabled until submit; validation is not hidden behind a disabled control, so the user learns why.</span></div>
+        <div class="row"><i>↳</i><span>A failed withdrawal returns to Review with the amount intact and the server's own sentence.</span></div>
+        <div class="row"><i>↳</i><span>Offline: refuse before submit with "Sending money needs a connection — nothing was deducted."</span></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="section" id="transfer">
+    <article class="flow-card">
+      <div class="flow-head">
+        <h3>4 · Send money to a person</h3>
+        <div><span class="tag muted">Instant</span> <span class="tag">No fee (demo)</span></div>
+      </div>
+      <div class="flow-track">
+        <div class="flow-step"><span class="num">1</span><div class="body"><b>Recipient</b><span>Phone or saved Apex contact; recent people first.</span></div></div>
+        <div class="flow-step"><span class="num">2</span><div class="body"><b>Amount + note</b><span>Optional note becomes the receipt description.</span></div></div>
+        <div class="flow-step"><span class="num">3</span><div class="body"><b>Review</b><span>Recipient name, masked phone, amount, note.</span></div></div>
+        <div class="flow-step"><span class="num">4</span><div class="body"><b>Post entry</b><span><code>POST /api/transfer</code> → <code>APX-TRF-…</code></span></div></div>
+        <div class="flow-step end"><span class="num">5</span><div class="body"><b>Receipt + activity</b><span>Both wallets reflect it; both users can read it.</span></div></div>
+      </div>
+      <div class="flow-branch">
+        <b>Branches</b>
+        <div class="row"><i>↳</i><span><b>Recipient not found:</b> inline "We could not find an Apex account for that number." No balance change.</span></div>
+        <div class="row"><i>↳</i><span><b>Insufficient balance:</b> server message under the amount; review stays open.</span></div>
+        <div class="row"><i>↳</i><span><b>Double tap / retry:</b> the submit button locks on first press; the same entry is not posted twice.</span></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="section" id="plans">
+    <article class="flow-card">
+      <div class="flow-head">
+        <h3>5 · Open and break a savings plan</h3>
+        <div><span class="tag muted">Flexible · Fixed · Target</span> <span class="tag amber">Fixed locks until maturity</span></div>
+      </div>
+      <div class="flow-track">
+        <div class="flow-step"><span class="num">1</span><div class="body"><b>Catalogue</b><span>Plan cards with progress, kind and maturity.</span></div></div>
+        <div class="flow-step"><span class="num">2</span><div class="body"><b>Configure</b><span>Name, amount, duration; fixed plans show the lock warning up front.</span></div></div>
+        <div class="flow-step"><span class="num">3</span><div class="body"><b>Fund plan</b><span>Moves wallet → plan; wallet balance updates from the server.</span></div></div>
+        <div class="flow-step"><span class="num">4</span><div class="body"><b>Plan detail</b><span>Progress, maturity date, "Withdraw from plan".</span></div></div>
+        <div class="flow-step end"><span class="num">5</span><div class="body"><b>Plan withdrawal</b><span>Partial allowed on flexible; returns to wallet instantly.</span></div></div>
+      </div>
+      <div class="flow-branch">
+        <b>Branches</b>
+        <div class="row"><i>↳</i><span><b>Fixed plan before maturity:</b> the action is disabled with the reason on screen, not a secret rule.</span></div>
+        <div class="row"><i>↳</i><span><b>Amount above plan balance:</b> server refuses; field shows the available amount.</span></div>
+        <div class="row"><i>↳</i><span><b>Wallet too low to open:</b> "Add money" is offered inline, preserving the plan draft when the user returns.</span></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="section" id="invest">
+    <article class="flow-card">
+      <div class="flow-head">
+        <h3>6 · Buy or sell shares</h3>
+        <div><span class="tag muted">NG + US</span> <span class="tag">Quote → ticket → receipt</span></div>
+      </div>
+      <div class="flow-track">
+        <div class="flow-step"><span class="num">1</span><div class="body"><b>Discover</b><span>Search, movers, holdings; symbol-first.</span></div></div>
+        <div class="flow-step"><span class="num">2</span><div class="body"><b>Quote</b><span>Price, day change, position; Buy / Sell tabs.</span></div></div>
+        <div class="flow-step"><span class="num">3</span><div class="body"><b>Ticket</b><span>Units or amount, estimated cost, cash remaining.</span></div></div>
+        <div class="flow-step"><span class="num">4</span><div class="body"><b>Review</b><span>Symbol, units, price, total; one confirm.</span></div></div>
+        <div class="flow-step end"><span class="num">5</span><div class="body"><b>Receipt</b><span>Position and wallet both move; <code>APX-INV-…</code>.</span></div></div>
+      </div>
+      <div class="flow-branch">
+        <b>Branches</b>
+        <div class="row"><i>↳</i><span><b>Selling more than held:</b> server refuses; ticket shows available units.</span></div>
+        <div class="row"><i>↳</i><span><b>Price moved since quote:</b> review flags "Price updated" and asks for a second confirm; totals recalculate.</span></div>
+        <div class="row"><i>↳</i><span><b>Market closed:</b> queue message, no fake success.</span></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="section" id="states">
+    <div class="section-head">
+      <div><h2>7 · The state machine behind every write</h2><p>All seven flows share one submission model. Designing this once keeps buttons, toasts and receipts consistent everywhere.</p></div>
+    </div>
+    <div class="table-wrap">
+      <table class="kit-table">
+        <thead>
+          <tr><th>State</th><th>Trigger</th><th>UI treatment</th><th>Input</th><th>Recovery</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Idle</td><td>Screen opens</td><td>Draft values restored; primary enabled</td><td>Editable</td><td>—</td></tr>
+          <tr><td>Validating</td><td>Field blur / amount change</td><td>Inline hint under the field; no submit block until attempt</td><td>Editable</td><td>Fix the field</td></tr>
+          <tr><td>Submitting</td><td>Primary pressed</td><td>Spinner in the button, label change, sheet actions locked</td><td>Frozen</td><td>Wait; no duplicate submit</td></tr>
+          <tr><td>Pending (slow)</td><td>&gt; 600 ms</td><td>"Talking to the ledger…" line; draft and amount visible</td><td>Frozen</td><td>Cancel after 15 s offers retry</td></tr>
+          <tr><td>Success</td><td>2xx + state</td><td>Receipt with reference, new balance, activity row</td><td>Reset</td><td>Done / repeat</td></tr>
+          <tr><td>Rejected</td><td>4xx + message</td><td>Server sentence at the point of failure; draft kept</td><td>Editable</td><td>Adjust and resubmit</td></tr>
+          <tr><td>Offline</td><td>Network / 502–504 / HTML</td><td>Banner + refusal toast; nothing changes</td><td>Kept</td><td>Reconnect and retry</td></tr>
+          <tr><td>Session expired</td><td>401</td><td>"Sign in again to continue"; one-tap OTP sheet</td><td>Kept</td><td>Re-auth, then resume draft</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" id="journey">
+    <div class="section-head">
+      <div><h2>End-to-end journey</h2><p>First deposit to first plan, with the emotional job at each step.</p></div>
+    </div>
+    <div class="table-wrap">
+      <table class="kit-table">
+        <thead><tr><th>Stage</th><th>User does</th><th>User feels</th><th>Design answer</th></tr></thead>
+        <tbody>
+          <tr><td>Arrive</td><td>Opens the app from a link or home screen</td><td>Curious, cautious</td><td>Fast splash; no carousel; sign-in one tap away</td></tr>
+          <tr><td>Prove identity</td><td>Enters phone, types the code</td><td>Wants in quickly</td><td>Paste-friendly cells, visible timer, clear errors</td></tr>
+          <tr><td>Orient</td><td>Sees a zero balance</td><td>Unsure what to do</td><td>One primary "Add money"; empty state explains the nest egg</td></tr>
+          <tr><td>Fund</td><td>Enters amount, confirms</td><td>Anxious about loss</td><td>Review sheet, pending state, receipt with reference</td></tr>
+          <tr><td>Commit</td><td>Opens a rent plan</td><td>Proud, slightly locked-in</td><td>Lock rules stated before opening; progress after</td></tr>
+          <tr><td>Return</td><td>Checks the balance days later</td><td>Wants confirmation of growth</td><td>Overview answers in one glance; activity proves it</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="link-row">
+    <a class="btn-link solid" href="wireframes.html">Next: wireframes →</a>
+    <a class="btn-link" href="prototype.html">Walk these flows in the prototype</a>
+  </div>
+
+</main>
+
+<footer class="kit-footer">
+  <span>Apex Finance design kit · <span data-year></span> · Built from the live product</span>
+  <span><a href="prototype.html">Prototype</a> · <a href="optimizations.html">Backlog</a></span>
+</footer>
+
+<script src="kit.js"></script>
+</body>
+</html>

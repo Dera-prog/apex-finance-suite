@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Apex Finance — Design Kit</title>
+<meta name="description" content="Wireframes, user flows, interactive prototype and design system for Apex Finance — the savings, wallet and investing app." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&family=Instrument+Serif:ital@0;1&family=Cascadia+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="kit-header">
+  <div class="kit-bar">
+    <a class="kit-brand" href="index.html">
+      <span class="kit-mark" aria-hidden="true"></span>
+      <span><b>Apex Finance</b><small>Design kit</small></span>
+    </a>
+    <nav class="kit-nav" aria-label="Design kit">
+      <a href="index.html" aria-current="page">Overview</a>
+      <a href="system.html">Design system</a>
+      <a href="flows.html">User flows</a>
+      <a href="wireframes.html">Wireframes</a>
+      <a href="designs.html">Designs</a>
+      <a href="prototype.html">Prototype</a>
+      <a href="optimizations.html">Optimizations</a>
+    </nav>
+    <div class="kit-tools">
+      <button class="icon-btn" type="button" data-theme-toggle aria-pressed="false">☾</button>
+      <a class="kit-cta" href="prototype.html">Open prototype →</a>
+    </div>
+  </div>
+</header>
+
+<main class="kit-main" id="main">
+
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Apex Finance · product design</span>
+      <h1>Move money with <em>receipts</em>, not guesses.</h1>
+      <p>A working design kit for the Apex wallet, savings plans and investing flows — grounded in the shipped product and its server-authoritative ledger. Everything here is clickable, annotated and ready to hand to engineering.</p>
+      <div class="hero-meta">
+        <span class="tag">7 flows</span>
+        <span class="tag green">14 wireframes</span>
+        <span class="tag amber">1 live prototype</span>
+        <span class="tag muted">Light + dark</span>
+      </div>
+      <div class="link-row">
+        <a class="btn-link solid" href="prototype.html">Try the prototype</a>
+        <a class="btn-link" href="flows.html">See the flows</a>
+        <a class="btn-link" href="optimizations.html">Read the backlog</a>
+      </div>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="sphere"></div>
+      <span class="sphere-caption">One ledger. Every surface.</span>
+    </div>
+  </section>
+
+  <section class="section" id="brief">
+    <div class="section-head">
+      <div>
+        <h2>The brief</h2>
+        <p>Turn Apex from a convincing surface into a product people can trust with real movement of money — without losing the calm, editorial feel of the brand.</p>
+      </div>
+    </div>
+    <div class="grid three">
+      <article class="panel">
+        <span class="kicker">Problem</span>
+        <h3>Money actions were local</h3>
+        <p>Deposit, withdraw, send, plans and trades used to update the browser only. A refresh, a second device or a curious user could disagree with the truth. The engineering is now server-first; the interface has to show that honestly.</p>
+      </article>
+      <article class="panel">
+        <span class="kicker">Design goal</span>
+        <h3>Every naira, accounted for</h3>
+        <p>Each write shows three things: what will happen, that it is happening, and the server's receipt. Refusals arrive in the server's own words. Nothing is "done" until the ledger says so.</p>
+      </article>
+      <article class="panel">
+        <span class="kicker">Constraint</span>
+        <h3>Calm under failure</h3>
+        <p>Networks fail, OTPs expire, balances run out. The design treats those as normal states, not edge cases — inline, recoverable, and never a dead end.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="kit">
+    <div class="section-head">
+      <div>
+        <h2>What is in the kit</h2>
+        <p>Each page is self-contained. The prototype reuses the same components as the hi-fi designs, so what you click is what you hand off.</p>
+      </div>
+    </div>
+    <div class="grid three">
+      <a class="panel" href="system.html" style="text-decoration:none">
+        <span class="kicker">01 · Foundations</span>
+        <h3>Design system</h3>
+        <p>Colour tokens for light and dark, type scale, spacing, and the component set used by every screen.</p>
+      </a>
+      <a class="panel" href="flows.html" style="text-decoration:none">
+        <span class="kicker">02 · Behaviour</span>
+        <h3>User flows</h3>
+        <p>Sign-in, funding, withdrawal, transfers, plans and investing — including the failure branches engineers usually discover late.</p>
+      </a>
+      <a class="panel" href="wireframes.html" style="text-decoration:none">
+        <span class="kicker">03 · Structure</span>
+        <h3>Wireframes</h3>
+        <p>Fourteen low-fidelity frames — thirteen mobile plus a desktop shell — with numbered annotations and an interaction table per group.</p>
+      </a>
+      <a class="panel" href="designs.html" style="text-decoration:none">
+        <span class="kicker">04 · Craft</span>
+        <h3>High-fidelity designs</h3>
+        <p>Desktop Overview, Wallet and Invest, plus the mobile deposit sheet, receipt and dark mode.</p>
+      </a>
+      <a class="panel" href="prototype.html" style="text-decoration:none">
+        <span class="kicker">05 · Evidence</span>
+        <h3>Interactive prototype</h3>
+        <p>A clickable phone app with pending states, server rejections, an offline switch and a slow-network switch.</p>
+      </a>
+      <a class="panel" href="optimizations.html" style="text-decoration:none">
+        <span class="kicker">06 · Next</span>
+        <h3>Optimisation backlog</h3>
+        <p>Fourteen prioritised fixes with before/after patterns and acceptance criteria, ranked by trust impact.</p>
+      </a>
+    </div>
+  </section>
+
+  <section class="section" id="map">
+    <div class="section-head">
+      <div>
+        <h2>Product map</h2>
+        <p>The shipped information architecture. The kit keeps these names so research, design and code refer to the same places.</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="kit-table">
+        <thead>
+          <tr><th>Surface</th><th>Primary job</th><th>Key screens</th><th>Money writes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Overview</td>
+            <td>Answer "how much do I have, and what changed?"</td>
+            <td>Balance, quick actions, plans strip, recent activity</td>
+            <td>Entry points only</td>
+          </tr>
+          <tr>
+            <td>Wallet</td>
+            <td>Move money in and out</td>
+            <td>NGN wallet, USD wallet, funding, withdrawal, sends</td>
+            <td>Deposit, withdraw, transfer</td>
+          </tr>
+          <tr>
+            <td>Savings</td>
+            <td>Put money aside with a reason</td>
+            <td>Plan catalogue, plan detail, open plan, plan withdrawal</td>
+            <td>Open, fund, break plan</td>
+          </tr>
+          <tr>
+            <td>Invest</td>
+            <td>Own a slice of a company</td>
+            <td>Quotes (NG + US), ticket, holdings</td>
+            <td>Buy, sell</td>
+          </tr>
+          <tr>
+            <td>Activity</td>
+            <td>Prove what happened</td>
+            <td>Filtered list, transaction detail, reference</td>
+            <td>None — read-only receipt</td>
+          </tr>
+          <tr>
+            <td>Profile</td>
+            <td>Identity, verification, preferences</td>
+            <td>Profile, account details, appearance, security</td>
+            <td>None</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" id="principles">
+    <div class="section-head">
+      <div>
+        <h2>Design principles</h2>
+        <p>Six rules that resolved most of the debates in this kit.</p>
+      </div>
+    </div>
+    <div class="grid three">
+      <article class="panel"><span class="kicker">01</span><h3>The server is the narrator</h3><p>Balances, references and refusals come from the ledger. The UI may preview, but never prose over the server's story.</p></article>
+      <article class="panel"><span class="kicker">02</span><h3>Receipt before celebration</h3><p>Success is a receipt with a reference you can copy, not confetti. Money is serious; the interface should behave like it.</p></article>
+      <article class="panel"><span class="kicker">03</span><h3>One decision per screen</h3><p>Amount, then destination, then confirm. Sheets stack one level deep and always have a way back that keeps the draft.</p></article>
+      <article class="panel"><span class="kicker">04</span><h3>Say what changed</h3><p>After a write, name the new balance and move it in front of the user. Silent success reads like a bug.</p></article>
+      <article class="panel"><span class="kicker">05</span><h3>Fail in place</h3><p>Errors belong next to the field or action that caused them, with a retry that keeps the entered amount.</p></article>
+      <article class="panel"><span class="kicker">06</span><h3>Dark is a place, not a filter</h3><p>Deep royal blue, adjusted surfaces and contrast — applied before paint, respected on both apps, never leaking into the marketing site.</p></article>
+    </div>
+  </section>
+
+  <section class="section" id="people">
+    <div class="section-head">
+      <div>
+        <h2>Who this is for</h2>
+        <p>Two working personas, drawn from the product's actual demo accounts and flows.</p>
+      </div>
+    </div>
+    <div class="grid two">
+      <article class="panel">
+        <span class="kicker">Persona A</span>
+        <h3>Chidera, 27 — first serious saver</h3>
+        <p>Designs for a living in Lagos, paid monthly, saves toward rent and a laptop. Uses the phone app daily, checks balances on the bus. Wants: certainty that a transfer left, a savings plan she won't dip into, and a receipt she can screenshot.</p>
+        <ul class="checklist">
+          <li>One-handed use on a moving bus</li>
+          <li>Spotty data — offline must never invent a balance</li>
+          <li>Trusts numbers, not adjectives</li>
+        </ul>
+      </article>
+      <article class="panel">
+        <span class="kicker">Persona B</span>
+        <h3>Tunde, 41 — cautious investor</h3>
+        <p>Works in operations, holds a few NG and US shares. Uses desktop at work, mobile at night. Wants: cost visible before confirming, a clean ticket, and a transaction history that reconciles with the bank.</p>
+        <ul class="checklist">
+          <li>Reads the review sheet before every trade</li>
+          <li>Symbol-first thinking; amount-second</li>
+          <li>Expects search, filters and exportable proof</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="metrics">
+    <div class="section-head">
+      <div>
+        <h2>How we will know it works</h2>
+        <p>Measurable outcomes the flows and backlog are pointed at.</p>
+      </div>
+    </div>
+    <div class="grid four">
+      <div class="panel"><span class="kicker">Task success</span><h3>≥ 95%</h3><p>Deposit and transfer completed without a support message, on first attempt.</p></div>
+      <div class="panel"><span class="kicker">Time to proof</span><h3>&lt; 60 s</h3><p>From opening the app to a receipt with a reference, for a returning user.</p></div>
+      <div class="panel"><span class="kicker">Error recovery</span><h3>≥ 80%</h3><p>Users who hit a server refusal and retry successfully in the same session.</p></div>
+      <div class="panel"><span class="kicker">False success</span><h3>0</h3><p>Cases where the UI claims success but the ledger shows no entry.</p></div>
+    </div>
+    <div class="callout mt-2">
+      <b>Scope note.</b> This kit documents the shipped product and proposed optimisations. Sandbox payment and SMS keys are not configured yet, so the prototype simulates card funding and OTP delivery; the real API already enforces every balance rule shown here.
+    </div>
+  </section>
+
+</main>
+
+<footer class="kit-footer">
+  <span>Apex Finance design kit · <span data-year></span> · Built from the live product</span>
+  <span><a href="prototype.html">Prototype</a> · <a href="optimizations.html">Backlog</a> · <a href="https://github.com/Dera-prog/apex-finance-suite#readme">Repo README</a></span>
+</footer>
+
+<script src="kit.js"></script>
+</body>
+</html>
