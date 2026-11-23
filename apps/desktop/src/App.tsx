@@ -277,7 +277,7 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
   const copy = {
     add: { title: 'Add money', sub: 'Fund your wallet from a linked Nigerian bank. Demo funds settle instantly.' },
     withdraw: { title: 'Withdraw to bank', sub: 'The amount you enter is the amount that leaves your wallet.' },
-    transfer: { title: 'Send money', sub: 'Instant Apex-to-Apex transfer. No fee in this demo.' },
+    transfer: { title: 'Send money', sub: 'Money leaves your wallet instantly. No fee in this demo.' },
   }[mode];
 
   const submit = async (e: FormEvent) => {
@@ -288,8 +288,8 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
       mode === 'add'
         ? await store.addMoney(value, bankName)
         : mode === 'withdraw'
-          ? store.withdraw(value, bankName)
-          : store.transfer(value, `${recipient}${tag ? ` (${tag})` : ''}`);
+          ? await store.withdraw(value, bankName)
+          : await store.transfer(value, `${recipient}${tag ? ` (${tag})` : ''}`);
     if (!result.ok) {
       setBusy(false);
       setError(result.error ?? 'Something went wrong.');
@@ -381,13 +381,15 @@ function NewPlanModal({ onClose }: { onClose: () => void }) {
   const [target, setTarget] = useState('100000');
   const [monthly, setMonthly] = useState('10000');
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const rate = kind === 'fixed' ? 16 : kind === 'target' ? 14 : 12;
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    const result = store.createPlan({
+    setBusy(true);
+    const result = await store.createPlan({
       name: name.trim(),
       kind,
       initial: parseNgn(initial) ?? toMinor(0),
@@ -395,6 +397,7 @@ function NewPlanModal({ onClose }: { onClose: () => void }) {
       monthly: kind === 'target' ? (parseNgn(monthly) ?? toMinor(0)) : undefined,
     });
     if (!result.ok) {
+      setBusy(false);
       setError(result.error ?? 'Could not open the plan.');
       return;
     }
@@ -492,8 +495,8 @@ function NewPlanModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <ErrorLine message={error} />
-        <button type="submit" className="btn btn-primary btn-block">
-          Open plan <ArrowRight size={15} />
+        <button type="submit" className="btn btn-primary btn-block" disabled={busy} aria-busy={busy}>
+          {busy ? 'Opening…' : 'Open plan'} <ArrowRight size={15} />
         </button>
         <p style={{ fontSize: 9.5, color: 'var(--ink-400)', marginTop: 10, textAlign: 'center' }}>
           Rates are illustrative. Early access on fixed plans may forfeit interest.
@@ -523,7 +526,7 @@ function PlanMoneyModal({
     setError(null);
     setBusy(true);
     const result =
-      mode === 'deposit' ? await store.planDeposit(plan.id, value) : store.planWithdraw(plan.id, value);
+      mode === 'deposit' ? await store.planDeposit(plan.id, value) : await store.planWithdraw(plan.id, value);
     if (!result.ok) {
       setBusy(false);
       setError(result.error ?? 'Could not complete this movement.');

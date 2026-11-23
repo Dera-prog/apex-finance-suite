@@ -77,7 +77,19 @@ npm run -w @apex/api test         # ledger invariants against the running databa
 
 The deployed API reads `DATABASE_URL` when it is set and returns the packaged seed otherwise; `GET /api/health` reports which one answered as `storage`.
 
-Writes go through `POST /api/deposit`, `POST /api/trade` and `POST /api/plans/:id/fund`. Each returns the full `MobileStateResponse` after committing, takes an optional `reference` for idempotency, and answers failures with `{ error, message }` plus a 4xx/503 status. The desktop and mobile stores call these for the seeded demo account and keep the server's transaction; withdrawals, transfers, new plans and plan withdrawals are still local to each app.
+Every money action is a server write; the apps never hold balances of their own.
+
+| Endpoint | Body | Effect |
+| --- | --- | --- |
+| `POST /api/deposit` | `{ amountMinor, source?, reference? }` | Credits the wallet |
+| `POST /api/withdraw` | `{ amountMinor, bankName?, reference? }` | Debits the wallet to the payout account |
+| `POST /api/transfer` | `{ amountMinor, recipient?, tag?, reference? }` | Debits the wallet to the transfer account (minimum ₦50) |
+| `POST /api/trade` | `{ symbol, units, side, reference? }` | Buys or sells a position against the wallet |
+| `POST /api/plans` | `{ name, kind, initialMinor, targetMinor?, monthlyMinor?, reference? }` | Opens a plan and its ledger account, then funds it |
+| `POST /api/plans/:id/fund` | `{ amountMinor, reference? }` | Moves wallet money into a plan |
+| `POST /api/plans/:id/withdraw` | `{ amountMinor, reference? }` | Moves plan money back to the wallet; fixed plans stay locked until maturity |
+
+Each returns the full `MobileStateResponse` after committing, takes an optional `reference` for idempotency, and answers failures with `{ error, message }` plus a 4xx/503 status. The desktop and mobile stores adopt that returned state, so a client device cannot invent a balance: a server rejection or an unreachable server ends the attempt with a message instead of a local edit.
 
 ## Accounts and sign-in
 
@@ -102,6 +114,34 @@ Set `SMS_PROVIDER` to `termii`, `twilio` or `africastalking` and the matching cr
 
 An SMS failure rolls the challenge back and answers `502 sms_failed`, so the attempt does not count against the per-phone limit.
 
+## Card funding (Paystack sandbox)
+
+Card funding is wired end to end against Paystack test mode and stays off until a test secret key is set. Without one, `POST /api/payments/checkout` answers `503 payments_not_configured` and the demo deposit path is unaffected.
+
+1. `POST /api/payments/checkout` with `Authorization: Bearer <token>` and `{ amountMinor }` → `{ authorizationUrl, reference }`. Amounts are kobo, minimum ₦100, maximum ₦10,000,000.
+2. The app opens `authorizationUrl`; the payer types the card on Paystack's hosted page, so Apex never sees card data.
+3. Paystack calls `POST /api/payments/webhook` with an `x-paystack-signature` header (HMAC-SHA512 of the raw body). The API verifies it, accepts only `charge.success` in NGN, and credits the owner carried in `metadata.owner` with reference `PSK-<paystack reference>`. Replays are no-ops.
+
+| Variable | Where it comes from |
+| --- | --- |
+| `PAYSTACK_SECRET_KEY` | Paystack dashboard → Settings → API Keys & Webhooks, **Test mode** secret key (`sk_test_…`) |
+| `PAYSTACK_PUBLIC_KEY` | Same page, test public key (`pk_test_…`); reserved for an embedded checkout, not used by the server yet |
+| `PAYMENT_RETURN_URL` | Optional; the page Paystack returns the payer to, e.g. `https://apex-finance-desktop.vercel.app/wallet` |
+
+Set the webhook URL to `https://apex-finance-api-ruddy.vercel.app/api/payments/webhook`. For a local API, expose port 4000 with a tunnel and use that URL instead. Paystack's test card is `4084 0840 8408 4081`, CVV `408`, PIN `0000`, OTP `123456`.
+
+## Sandbox keys
+
+Everything that needs a third-party account is optional; the demo runs without any of them.
+
+| Capability | Variables | Where to get them |
+| --- | --- | --- |
+| Sign-in SMS | `SMS_PROVIDER=termii`, `TERMII_API_KEY`, `TERMII_SENDER_ID` | [termii.com](https://termii.com) → Dashboard → API Keys. Sender ID must be approved by Termii first. |
+| Card funding | `PAYSTACK_SECRET_KEY`, `PAYSTACK_PUBLIC_KEY` | [dashboard.paystack.com](https://dashboard.paystack.com) → Settings → API Keys & Webhooks → Test keys |
+| Payment webhook | `PAYMENT_RETURN_URL` and the Paystack webhook URL above | Same Paystack settings page |
+
+Add them to `apps/api/.env` locally, or with `vercel env add <NAME>` for the deployed API. Restart `npm run dev:api` after editing `.env`.
+
 ## Rate limits
 
 Limits are stored in Postgres (`rate_limits`), so they hold across serverless instances instead of per process.
@@ -111,7 +151,8 @@ Limits are stored in Postgres (`rate_limits`), so they hold across serverless in
 | `POST /api/auth/request-code` | 10 per IP per 10 minutes (plus the per-phone limit above) |
 | `POST /api/auth/verify-code` | 40 per IP per 10 minutes (plus five quick guesses per challenge) |
 | `GET /api/state` | 300 per IP per minute |
-| Deposits, trades and plan funding | 30 per account and 60 per IP per minute |
+| Deposits, withdrawals, transfers, trades and plan writes | 30 per account and 60 per IP per minute |
+| `POST /api/payments/checkout` | 20 per IP per 10 minutes |
 
 Exceeding a limit answers `429 too_many_requests`. Old rows are pruned opportunistically.
 

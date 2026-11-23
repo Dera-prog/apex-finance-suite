@@ -1,21 +1,42 @@
+import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { API } from '../../../packages/shared/api.js';
 import type {
   DepositRequest,
   HealthResponse,
   MobileStateResponse,
+  OpenPlanRequest,
   PlanFundRequest,
+  PlanWithdrawRequest,
   RequestCodeRequest,
   TradeRequest,
+  TransferRequest,
   VerifyCodeRequest,
+  WithdrawRequest,
 } from '../../../packages/shared/api.js';
 import { demoMobileState } from '../../../packages/shared/demo-state.js';
 import { AuthError, ownerForToken, requestCode, signOut, verifyCode } from './auth.js';
+import { db } from './db.js';
 import { LEDGER_OWNER } from './env.js';
 import { ledgerConnected, readLedgerState } from './ledger.js';
+import {
+  initializeCheckout,
+  PaymentError,
+  verifyWebhookSignature,
+} from './payments.js';
+import type { ChargeEvent } from './payments.js';
 import { enforceRateLimit, RateLimitError } from './rate-limit.js';
 import { SmsError } from './sms.js';
-import { deposit, fundPlan, LedgerError, trade } from './writes.js';
+import {
+  deposit,
+  fundPlan,
+  LedgerError,
+  openPlan,
+  trade,
+  transfer,
+  withdraw,
+  withdrawPlan,
+} from './writes.js';
 import { sendJson } from './respond.js';
 
 type Method = 'GET' | 'POST';
@@ -105,6 +126,19 @@ async function readBody(req: IncomingMessage) {
   }
 }
 
+/** Webhooks are signed over the exact bytes sent, so they need the unparsed body. */
+async function readRawBody(req: IncomingMessage, limit = 64 * 1024) {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > limit) throw new HttpError(413, 'payload_too_large', 'Request body is too large.');
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 /** A write answers with the whole state so the caller never has to reassemble it. */
 async function respondWithState(res: ServerResponse, owner = LEDGER_OWNER) {
   const next: MobileStateResponse | null = await readLedgerState(owner);
@@ -117,6 +151,30 @@ async function depositHandler(req: IncomingMessage, res: ServerResponse) {
   const owner = (await ownerFrom(req)) ?? LEDGER_OWNER;
   await limitWrite(req, owner);
   await deposit(body as unknown as DepositRequest, owner);
+  await respondWithState(res, owner);
+}
+
+async function withdrawHandler(req: IncomingMessage, res: ServerResponse) {
+  const body = await readBody(req);
+  const owner = (await ownerFrom(req)) ?? LEDGER_OWNER;
+  await limitWrite(req, owner);
+  await withdraw(body as unknown as WithdrawRequest, owner);
+  await respondWithState(res, owner);
+}
+
+async function transferHandler(req: IncomingMessage, res: ServerResponse) {
+  const body = await readBody(req);
+  const owner = (await ownerFrom(req)) ?? LEDGER_OWNER;
+  await limitWrite(req, owner);
+  await transfer(body as unknown as TransferRequest, owner);
+  await respondWithState(res, owner);
+}
+
+async function openPlanHandler(req: IncomingMessage, res: ServerResponse) {
+  const body = await readBody(req);
+  const owner = (await ownerFrom(req)) ?? LEDGER_OWNER;
+  await limitWrite(req, owner);
+  await openPlan(body as unknown as OpenPlanRequest, owner);
   await respondWithState(res, owner);
 }
 
@@ -136,6 +194,105 @@ function fundPlanHandler(planId: string): Handler {
     await fundPlan(planId, body as unknown as PlanFundRequest, owner);
     await respondWithState(res, owner);
   };
+}
+
+function withdrawPlanHandler(planId: string): Handler {
+  return async (req, res) => {
+    const body = await readBody(req);
+    const owner = (await ownerFrom(req)) ?? LEDGER_OWNER;
+    await limitWrite(req, owner);
+    await withdrawPlan(planId, body as unknown as PlanWithdrawRequest, owner);
+    await respondWithState(res, owner);
+  };
+}
+
+async function checkoutHandler(req: IncomingMessage, res: ServerResponse) {
+  await limitIp(req, 'checkout', 20, 600);
+  const token = bearer(req);
+  if (!token) throw new HttpError(401, 'sign_in_required', 'Sign in before funding your wallet.');
+  const owner = await ownerForToken(token);
+  if (!owner) throw new HttpError(401, 'session_expired', 'That sign-in has expired. Sign in again.');
+
+  const body = await readBody(req);
+  const amount = body.amountMinor;
+  if (typeof amount !== 'number' || !Number.isInteger(amount)) {
+    throw new HttpError(400, 'invalid_amount', 'Amount must be a whole number of kobo.');
+  }
+  if (amount < 10_000) throw new HttpError(400, 'amount_below_minimum', 'Enter at least ₦100.');
+  if (amount > 1_000_000_000) throw new HttpError(400, 'amount_above_limit', 'Amount is above the ₦10,000,000 demo limit.');
+
+  const pool = db();
+  if (!pool) throw new HttpError(503, 'ledger_unavailable', 'The ledger database is not configured.');
+  const profile = await pool.query<{ email: string }>('select email from profiles where owner_id = $1', [owner]);
+  const email = (
+    (typeof body.email === 'string' ? body.email.trim() : '') || profile.rows[0]?.email || ''
+  ).trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new HttpError(400, 'email_required', 'Add an email address before paying by card.');
+  }
+
+  const supplied = typeof body.reference === 'string' ? body.reference.trim() : '';
+  const reference = /^[A-Za-z0-9._-]{4,40}$/.test(supplied) ? supplied : `APX-PSK-${randomUUID().slice(0, 12)}`;
+  const callbackUrl = (process.env.PAYMENT_RETURN_URL ?? '').trim() || undefined;
+
+  const checkout = await initializeCheckout({ email, amountMinor: amount, reference, callbackUrl, owner });
+  sendJson(res, 200, { authorizationUrl: checkout.authorizationUrl, reference: checkout.reference });
+}
+
+async function paymentWebhookHandler(req: IncomingMessage, res: ServerResponse) {
+  const raw = await readRawBody(req);
+  if (!verifyWebhookSignature(raw, req.headers['x-paystack-signature'])) {
+    sendJson(res, 401, { error: 'bad_signature' });
+    return;
+  }
+
+  let event: ChargeEvent;
+  try {
+    event = JSON.parse(raw) as ChargeEvent;
+  } catch {
+    throw new HttpError(400, 'invalid_json', 'Webhook body must be JSON.');
+  }
+
+  if (event.event !== 'charge.success' || event.data?.status !== 'success' || event.data.currency !== 'NGN') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  const owner = typeof event.data.metadata?.owner === 'string' ? event.data.metadata.owner.trim() : '';
+  const amount = event.data.amount;
+  const paystackRef = typeof event.data.reference === 'string' ? event.data.reference.trim() : '';
+  if (!owner || !paystackRef || typeof amount !== 'number' || !Number.isInteger(amount)) {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  const pool = db();
+  if (!pool) throw new HttpError(503, 'ledger_unavailable', 'The ledger database is not configured.');
+  const known = await pool.query('select 1 from profiles where owner_id = $1', [owner]);
+  if (known.rows.length === 0) {
+    console.warn('paystack webhook for unknown owner', owner);
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  const reference = `PSK-${paystackRef}`.slice(0, 40);
+  try {
+    await deposit({ amountMinor: amount, source: 'Paystack card', reference }, owner);
+  } catch (error) {
+    if (error instanceof LedgerError && error.code === 'duplicate_reference') {
+      // Paystack retries a webhook it did not see acknowledged; the credit already landed.
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+    throw error;
+  }
+
+  res.writeHead(200);
+  res.end();
 }
 
 async function requestCodeHandler(req: IncomingMessage, res: ServerResponse) {
@@ -161,22 +318,28 @@ const routes = new Map<string, Partial<Record<Method, Handler>>>([
   [API.health, { GET: health }],
   [API.demoState, { GET: state }],
   [API.deposit, { POST: depositHandler }],
+  [API.withdraw, { POST: withdrawHandler }],
+  [API.transfer, { POST: transferHandler }],
   [API.trade, { POST: tradeHandler }],
+  [API.openPlan, { POST: openPlanHandler }],
+  [API.checkout, { POST: checkoutHandler }],
+  [API.paymentWebhook, { POST: paymentWebhookHandler }],
   [API.requestCode, { POST: requestCodeHandler }],
   [API.verifyCode, { POST: verifyCodeHandler }],
   [API.logout, { POST: logoutHandler }],
 ]);
 
-const planFundRoute = /^\/api\/plans\/([^/]+)\/fund$/;
+const planActionRoute = /^\/api\/plans\/([^/]+)\/(fund|withdraw)$/;
 
 const routeFor = (pathname: string): Partial<Record<Method, Handler>> | undefined => {
   const exact = routes.get(pathname);
   if (exact) return exact;
 
-  const match = planFundRoute.exec(pathname);
-  if (!match?.[1]) return undefined;
+  const match = planActionRoute.exec(pathname);
+  if (!match?.[1] || !match[2]) return undefined;
 
-  return { POST: fundPlanHandler(decodeURIComponent(match[1])) };
+  const planId = decodeURIComponent(match[1]);
+  return { POST: match[2] === 'fund' ? fundPlanHandler(planId) : withdrawPlanHandler(planId) };
 };
 
 const allowedOrigin = () => process.env.ALLOWED_ORIGIN ?? '*';
@@ -225,6 +388,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       error instanceof LedgerError ||
       error instanceof HttpError ||
       error instanceof AuthError ||
+      error instanceof PaymentError ||
       error instanceof RateLimitError ||
       error instanceof SmsError
     ) {

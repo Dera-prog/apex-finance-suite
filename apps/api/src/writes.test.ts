@@ -4,7 +4,7 @@ import pg from 'pg';
 import { stocks } from '../../../packages/shared/data.js';
 import { pctOf, toMinor } from '../../../packages/shared/money.js';
 import { testDatabaseUrl } from '../scripts/database-url.js';
-import { deposit, fundPlan, LedgerError, trade } from './writes.js';
+import { deposit, fundPlan, LedgerError, openPlan, trade, transfer, withdraw, withdrawPlan } from './writes.js';
 
 process.env.DATABASE_URL ??= testDatabaseUrl;
 
@@ -228,5 +228,109 @@ test('funding refuses an unknown plan and a wallet that cannot cover it', async 
     await rejects(fundPlan('plan-missing', { amountMinor: 100_000 }, owner, client), 'unknown_plan');
     await rejects(fundPlan(planId, { amountMinor: 5_100_000 }, owner, client), 'insufficient_wallet');
     assert.equal(await balance(client, `plan:${planId}`), 0);
+  });
+});
+
+test('a withdrawal debits the wallet and cannot exceed the balance', async () => {
+  await inLedger(async (client) => {
+    await withdraw({ amountMinor: 250_000, bankName: 'Zenith Bank', reference: 'TEST-WDR-1' }, owner, client);
+
+    assert.equal(await balance(client, 'wallet:NGN'), 4_750_000);
+    const entry = await client.query<{ title: string; kind: string; amount_minor: string }>(
+      'select title, kind, amount_minor from entries where owner_id = $1 and reference = $2',
+      [owner, 'TEST-WDR-1'],
+    );
+    assert.equal(entry.rows[0]?.title, 'Withdrawal to Zenith Bank');
+    assert.equal(entry.rows[0]?.kind, 'withdrawal');
+    assert.equal(entry.rows[0]?.amount_minor, '-250000');
+
+    await rejects(withdraw({ amountMinor: 4_750_001, bankName: 'Zenith Bank' }, owner, client), 'insufficient_wallet');
+    await rejects(withdraw({ amountMinor: 9_999, bankName: 'Zenith Bank' }, owner, client), 'amount_below_minimum');
+  });
+});
+
+test('a transfer debits the wallet, keeps the tag and enforces its lower minimum', async () => {
+  await inLedger(async (client) => {
+    await transfer({ amountMinor: 5_000, recipient: 'Chinedu Okafor', tag: '@chinedu', reference: 'TEST-TRF-1' }, owner, client);
+
+    assert.equal(await balance(client, 'wallet:NGN'), 4_995_000);
+    const entry = await client.query<{ title: string; meta: string; kind: string }>(
+      'select title, meta, kind from entries where owner_id = $1 and reference = $2',
+      [owner, 'TEST-TRF-1'],
+    );
+    assert.equal(entry.rows[0]?.title, 'Transfer to Chinedu Okafor (@chinedu)');
+    assert.equal(entry.rows[0]?.kind, 'transfer');
+
+    await rejects(transfer({ amountMinor: 4_999, recipient: 'Chinedu' }, owner, client), 'amount_below_minimum');
+    await rejects(transfer({ amountMinor: 5_000_000, recipient: 'Chinedu' }, owner, client), 'insufficient_wallet');
+  });
+});
+
+test('opening a plan creates its ledger account and moves the starting amount', async () => {
+  await inLedger(async (client) => {
+    const result = await openPlan(
+      { name: 'Rent plan', kind: 'target', initialMinor: 200_000, targetMinor: 2_000_000, monthlyMinor: 100_000, reference: 'TEST-OPEN-1' },
+      owner,
+      client,
+    );
+
+    assert.equal(await balance(client, 'wallet:NGN'), 4_800_000);
+    assert.equal(await balance(client, `plan:${result.planId}`), 200_000);
+
+    const plan = await client.query<{ name: string; kind: string; rate: string; target_minor: string; monthly_minor: string }>(
+      'select name, kind, rate, target_minor, monthly_minor from plans where owner_id = $1 and id = $2',
+      [owner, result.planId],
+    );
+    assert.equal(plan.rows[0]?.name, 'Rent plan');
+    assert.equal(plan.rows[0]?.kind, 'target');
+    assert.equal(Number(plan.rows[0]?.rate), 14);
+    assert.equal(Number(plan.rows[0]?.target_minor), 2_000_000);
+    assert.equal(Number(plan.rows[0]?.monthly_minor), 100_000);
+
+    const account = await client.query('select 1 from accounts where owner_id = $1 and code = $2', [
+      owner,
+      `plan:${result.planId}`,
+    ]);
+    assert.equal(account.rows.length, 1);
+  });
+});
+
+test('opening a plan rejects bad kinds, names and amounts', async () => {
+  await inLedger(async (client) => {
+    await rejects(openPlan({ name: '', kind: 'flexible', initialMinor: 200_000 }, owner, client), 'invalid_text');
+    await rejects(openPlan({ name: 'Too small', kind: 'flexible', initialMinor: 99_999 }, owner, client), 'amount_below_minimum');
+    await rejects(
+      openPlan({ name: 'Bad target', kind: 'target', initialMinor: 200_000, targetMinor: 100_000 }, owner, client),
+      'invalid_plan',
+    );
+    await rejects(
+      openPlan({ name: 'Too big', kind: 'fixed', initialMinor: 5_100_000 }, owner, client),
+      'insufficient_wallet',
+    );
+    assert.equal(await balance(client, 'wallet:NGN'), 5_000_000);
+  });
+});
+
+test('withdrawing from a plan credits the wallet and respects the plan balance', async () => {
+  await inLedger(async (client) => {
+    await fundPlan(planId, { amountMinor: 300_000 }, owner, client);
+    await withdrawPlan(planId, { amountMinor: 120_000, reference: 'TEST-PWD-1' }, owner, client);
+
+    assert.equal(await balance(client, 'wallet:NGN'), 4_820_000);
+    assert.equal(await balance(client, `plan:${planId}`), 180_000);
+
+    await rejects(withdrawPlan(planId, { amountMinor: 180_001 }, owner, client), 'insufficient_plan');
+    await rejects(withdrawPlan('plan-missing', { amountMinor: 100_000 }, owner, client), 'unknown_plan');
+  });
+});
+
+test('a fixed plan stays locked until its maturity date', async () => {
+  await inLedger(async (client) => {
+    const fixed = await openPlan({ name: 'Locked plan', kind: 'fixed', initialMinor: 200_000 }, owner, client);
+    await rejects(withdrawPlan(fixed.planId, { amountMinor: 100_000 }, owner, client), 'plan_locked');
+
+    await client.query(`update plans set maturity = current_date - 1 where id = $1`, [fixed.planId]);
+    await withdrawPlan(fixed.planId, { amountMinor: 100_000 }, owner, client);
+    assert.equal(await balance(client, `plan:${fixed.planId}`), 100_000);
   });
 });

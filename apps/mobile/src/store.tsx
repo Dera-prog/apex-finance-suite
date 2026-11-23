@@ -6,11 +6,15 @@ import { API } from '@shared/api';
 import {
   depositToLedger,
   fundPlanInLedger,
+  openPlanInLedger,
   requestSignInCode as requestSignInCodeApi,
   signOutLedger,
   syncLedgerState,
   tradeInLedger,
+  transferFromLedger,
   verifySignInCode as verifySignInCodeApi,
+  withdrawFromLedger,
+  withdrawPlanInLedger,
 } from '@shared/client';
 import type { MobileStateResponse, PlanDto, Profile, TxnDto } from '@shared/api';
 import { demoMobileState } from '@shared/demo-state';
@@ -176,11 +180,11 @@ type Store = MobileState & {
   toast: string | null;
   notify: (message: string) => void;
   addMoney: (amount: Minor, source: string) => Promise<MoneyResult>;
-  withdraw: (amount: Minor, bankName: string) => MoneyResult;
-  transfer: (amount: Minor, name: string) => MoneyResult;
-  createPlan: (input: { name: string; kind: PlanKind; initial: Minor; target?: Minor; monthly?: Minor }) => PlanResult;
+  withdraw: (amount: Minor, bankName: string) => Promise<MoneyResult>;
+  transfer: (amount: Minor, name: string) => Promise<MoneyResult>;
+  createPlan: (input: { name: string; kind: PlanKind; initial: Minor; target?: Minor; monthly?: Minor }) => Promise<PlanResult>;
   planDeposit: (id: string, amount: Minor) => Promise<MoneyResult>;
-  planWithdraw: (id: string, amount: Minor) => MoneyResult;
+  planWithdraw: (id: string, amount: Minor) => Promise<MoneyResult>;
   trade: (symbol: string, units: number, side: 'buy' | 'sell') => Promise<MoneyResult>;
   markAllRead: () => void;
   setPref: <K extends keyof Prefs>(key: K, value: Prefs[K]) => void;
@@ -205,6 +209,16 @@ const planLook = (kind: PlanKind) =>
       : { color: '#1D52CE', pastel: '#A9CBFF', icon: 'bolt', rate: 12 };
 
 const clock = () => new Date();
+
+/** A signed-in write that never reached the server must fail, not quietly change a local copy. */
+const OFFLINE_WRITE = 'Could not reach the Apex server. Check your connection and try again.';
+const SIGN_IN_FIRST = 'Sign in to move money in this account.';
+
+/** Server responses replace balances, plans and history; device preferences stay local. */
+const adopt = (remote: MobileStateResponse) => (s: MobileState): MobileState => ({
+  ...remote,
+  prefs: s.prefs,
+});
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [boot] = useState(load);
@@ -286,19 +300,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!Number.isInteger(amount) || amount < MIN_DEPOSIT) return { ok: false, error: 'Enter at least ₦100.' };
       if (amount > MAX_FUNDING) return { ok: false, error: 'Demo funding is capped at ₦10,000,000 at a time.' };
       const ref = makeRef('DEP');
-      let recorded: TxnDto | undefined;
+      const token = sessionRef.current?.token;
 
-      if (sessionRef.current?.token || state.account === 'seed') {
+      if (token || state.account === 'seed') {
         const outcome = await depositToLedger(
           API_BASE,
           { amountMinor: amount, source: source.trim(), reference: ref },
-          sessionRef.current?.token,
+          token,
         );
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
-        if (outcome.status === 'ok') recorded = outcome.state.txns.find((t) => t.ref === ref);
+        if (outcome.status === 'ok') {
+          const txn = outcome.state.txns.find((t) => t.ref === ref);
+          setState(adopt(outcome.state));
+          notify(`${formatNgn(amount)} added to your wallet`);
+          return { ok: true, txn };
+        }
+        if (token) return { ok: false, error: OFFLINE_WRITE };
+      } else {
+        return { ok: false, error: SIGN_IN_FIRST };
       }
 
-      const txn: TxnDto = recorded ?? {
+      const txn: TxnDto = {
         id: `tx-${Date.now()}`,
         title: `Bank transfer from ${source}`,
         meta: 'Wallet funding · demo balance',
@@ -316,8 +338,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const withdraw = useCallback<Store['withdraw']>(
-    (amount, bankName) => {
+    async (amount, bankName) => {
       if (!Number.isInteger(amount) || amount < MIN_DEPOSIT) return { ok: false, error: 'Enter at least ₦100.' };
+      const ref = makeRef('WDR');
+      const token = sessionRef.current?.token;
+
+      if (token || state.account === 'seed') {
+        const outcome = await withdrawFromLedger(API_BASE, { amountMinor: amount, bankName, reference: ref }, token);
+        if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
+        if (outcome.status === 'ok') {
+          const txn = outcome.state.txns.find((t) => t.ref === ref);
+          setState(adopt(outcome.state));
+          notify(`${formatNgn(amount)} sent to ${bankName}`);
+          return { ok: true, txn };
+        }
+        if (token) return { ok: false, error: OFFLINE_WRITE };
+      } else {
+        return { ok: false, error: SIGN_IN_FIRST };
+      }
+
       if (amount > state.walletNgnKobo) return { ok: false, error: 'That is more than your available wallet balance.' };
       const txn: TxnDto = {
         id: `tx-${Date.now()}`,
@@ -327,53 +366,102 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         date: clock().toISOString(),
         status: 'Completed',
         type: 'withdrawal',
-        ref: makeRef('WDR'),
+        ref,
       };
       setState((s) => ({ ...s, walletNgnKobo: sub(s.walletNgnKobo, amount), txns: pushTxn(txn)(s) }));
       notify(`${formatNgn(amount)} sent to ${bankName}`);
       return { ok: true, txn };
     },
-    [notify, state.walletNgnKobo],
+    [notify, state.account, state.walletNgnKobo],
   );
 
   const transfer = useCallback<Store['transfer']>(
-    (amount, name) => {
+    async (amount, name) => {
       if (!Number.isInteger(amount) || amount < MIN_TRANSFER) return { ok: false, error: 'Enter at least ₦50.' };
-      if (amount > state.walletNgnKobo) return { ok: false, error: 'That is more than your available wallet balance.' };
       if (!name.trim()) return { ok: false, error: 'Add a recipient name or Apex tag.' };
+      const ref = makeRef('TRF');
+      const token = sessionRef.current?.token;
+      const recipient = name.trim();
+
+      if (token || state.account === 'seed') {
+        const outcome = await transferFromLedger(API_BASE, { amountMinor: amount, recipient, reference: ref }, token);
+        if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
+        if (outcome.status === 'ok') {
+          const txn = outcome.state.txns.find((t) => t.ref === ref);
+          setState(adopt(outcome.state));
+          notify(`${formatNgn(amount)} sent to ${recipient}`);
+          return { ok: true, txn };
+        }
+        if (token) return { ok: false, error: OFFLINE_WRITE };
+      } else {
+        return { ok: false, error: SIGN_IN_FIRST };
+      }
+
+      if (amount > state.walletNgnKobo) return { ok: false, error: 'That is more than your available wallet balance.' };
       const txn: TxnDto = {
         id: `tx-${Date.now()}`,
-        title: `Transfer to ${name.trim()}`,
-        meta: 'Apex wallet · instant',
+        title: `Transfer to ${recipient}`,
+        meta: 'Apex wallet · demo rails',
         amountKobo: neg(amount),
         date: clock().toISOString(),
         status: 'Completed',
         type: 'transfer',
-        ref: makeRef('TRF'),
+        ref,
       };
       setState((s) => ({ ...s, walletNgnKobo: sub(s.walletNgnKobo, amount), txns: pushTxn(txn)(s) }));
-      notify(`${formatNgn(amount)} sent to ${name.trim()}`);
+      notify(`${formatNgn(amount)} sent to ${recipient}`);
       return { ok: true, txn };
     },
-    [notify, state.walletNgnKobo],
+    [notify, state.account, state.walletNgnKobo],
   );
 
   const createPlan = useCallback<Store['createPlan']>(
-    (input) => {
+    async (input) => {
       if (!input.name.trim()) return { ok: false, error: 'Give the plan a name.' };
       if (!Number.isInteger(input.initial) || input.initial < MIN_PLAN_OPENING) {
         return { ok: false, error: 'Start with at least ₦1,000.' };
       }
-      if (input.initial > state.walletNgnKobo) return { ok: false, error: 'Your wallet does not have enough for that starting amount.' };
       if (input.kind === 'target' && (!input.target || input.target <= input.initial)) {
         return { ok: false, error: 'A target must be higher than the starting amount.' };
       }
+      const name = input.name.trim();
+      const ref = makeRef('SAV');
+      const token = sessionRef.current?.token;
+
+      if (token || state.account === 'seed') {
+        const before = new Set(state.plans.map((p) => p.id));
+        const outcome = await openPlanInLedger(
+          API_BASE,
+          {
+            name,
+            kind: input.kind,
+            initialMinor: input.initial,
+            targetMinor: input.kind === 'target' ? input.target : undefined,
+            monthlyMinor: input.kind === 'target' ? input.monthly : undefined,
+            reference: ref,
+          },
+          token,
+        );
+        if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
+        if (outcome.status === 'ok') {
+          const plan = outcome.state.plans.find((p) => !before.has(p.id)) ?? outcome.state.plans[0];
+          const txn = outcome.state.txns.find((t) => t.ref === ref);
+          setState(adopt(outcome.state));
+          notify(`${name} opened with ${formatNgn(input.initial)}`);
+          return { ok: true, plan, txn };
+        }
+        if (token) return { ok: false, error: OFFLINE_WRITE };
+      } else {
+        return { ok: false, error: SIGN_IN_FIRST };
+      }
+
+      if (input.initial > state.walletNgnKobo) return { ok: false, error: 'Your wallet does not have enough for that starting amount.' };
       const now = clock();
       const maturity = new Date(now);
       maturity.setDate(maturity.getDate() + 90);
       const plan: PlanDto = {
         id: `plan-${Date.now()}`,
-        name: input.name.trim(),
+        name,
         kind: input.kind,
         balanceKobo: input.initial,
         targetKobo: input.kind === 'target' ? input.target : undefined,
@@ -398,7 +486,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         date: now.toISOString(),
         status: 'Completed',
         type: 'savings',
-        ref: makeRef('SAV'),
+        ref,
       };
       setState((s) => ({
         ...s,
@@ -409,7 +497,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       notify(`${plan.name} opened with ${formatNgn(input.initial)}`);
       return { ok: true, plan, txn };
     },
-    [notify, state.walletNgnKobo],
+    [notify, state.account, state.walletNgnKobo],
   );
 
   const planDeposit = useCallback<Store['planDeposit']>(
@@ -419,20 +507,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!Number.isInteger(amount) || amount < MIN_DEPOSIT) return { ok: false, error: 'Enter at least ₦100.' };
       if (amount > state.walletNgnKobo) return { ok: false, error: 'Your wallet does not have enough for this top-up.' };
       const ref = makeRef('SAV');
-      let recorded: TxnDto | undefined;
+      const token = sessionRef.current?.token;
 
-      if (sessionRef.current?.token || state.account === 'seed') {
+      if (token || state.account === 'seed') {
         const outcome = await fundPlanInLedger(
           API_BASE,
           id,
           { amountMinor: amount, reference: ref },
-          sessionRef.current?.token,
+          token,
         );
-        if (outcome.status === 'rejected' && outcome.code !== 'unknown_plan') return { ok: false, error: outcome.error };
-        if (outcome.status === 'ok') recorded = outcome.state.txns.find((t) => t.ref === ref);
+        if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
+        if (outcome.status === 'ok') {
+          const txn = outcome.state.txns.find((t) => t.ref === ref);
+          setState(adopt(outcome.state));
+          notify(`${formatNgn(amount)} added to ${plan.name}`);
+          return { ok: true, txn };
+        }
+        if (token) return { ok: false, error: OFFLINE_WRITE };
+      } else {
+        return { ok: false, error: SIGN_IN_FIRST };
       }
 
-      const txn: TxnDto = recorded ?? {
+      if (amount > state.walletNgnKobo) return { ok: false, error: 'Your wallet does not have enough for this top-up.' };
+      const txn: TxnDto = {
         id: `tx-${Date.now()}`,
         title: plan.name,
         meta: 'Savings top-up · from wallet',
@@ -455,13 +552,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const planWithdraw = useCallback<Store['planWithdraw']>(
-    (id, amount) => {
+    async (id, amount) => {
       const plan = state.plans.find((p) => p.id === id);
       if (!plan) return { ok: false, error: 'Plan not found.' };
+      if (!Number.isInteger(amount) || amount < MIN_DEPOSIT) return { ok: false, error: 'Enter at least ₦100.' };
+      const ref = makeRef('SAV');
+      const token = sessionRef.current?.token;
+
+      if (token || state.account === 'seed') {
+        const outcome = await withdrawPlanInLedger(API_BASE, id, { amountMinor: amount, reference: ref }, token);
+        if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
+        if (outcome.status === 'ok') {
+          const txn = outcome.state.txns.find((t) => t.ref === ref);
+          setState(adopt(outcome.state));
+          notify(`${formatNgn(amount)} moved to your wallet`);
+          return { ok: true, txn };
+        }
+        if (token) return { ok: false, error: OFFLINE_WRITE };
+      } else {
+        return { ok: false, error: SIGN_IN_FIRST };
+      }
+
       if (plan.kind === 'fixed') {
         return { ok: false, error: 'This fixed plan is locked until maturity. Early access follows partner rules.' };
       }
-      if (!Number.isInteger(amount) || amount < MIN_DEPOSIT) return { ok: false, error: 'Enter at least ₦100.' };
       if (amount > plan.balanceKobo) return { ok: false, error: 'That is more than this plan holds.' };
       const txn: TxnDto = {
         id: `tx-${Date.now()}`,
@@ -471,7 +585,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         date: clock().toISOString(),
         status: 'Completed',
         type: 'savings',
-        ref: makeRef('SAV'),
+        ref,
       };
       setState((s) => ({
         ...s,
@@ -498,6 +612,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const holding = state.holdings.find((h) => h.symbol === symbol);
       const price = isUsd ? formatUsd(toMinor(stock.price)) : formatNgn(toMinor(stock.price));
 
+      const ref = makeRef('INV');
+      const token = sessionRef.current?.token;
+
+      if (token || state.account === 'seed') {
+        const outcome = await tradeInLedger(
+          API_BASE,
+          { symbol, units, side, reference: ref },
+          token,
+        );
+        if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
+        if (outcome.status === 'ok') {
+          const txn = outcome.state.txns.find((t) => t.ref === ref);
+          setState(adopt(outcome.state));
+          notify(side === 'buy' ? `${units} ${symbol} bought at ${price}` : `${units} ${symbol} sold`);
+          return { ok: true, txn };
+        }
+        if (token) return { ok: false, error: OFFLINE_WRITE };
+      } else {
+        return { ok: false, error: SIGN_IN_FIRST };
+      }
+
       if (side === 'buy') {
         const wallet = isUsd ? state.walletUsdCents : state.walletNgnKobo;
         if (cost > wallet) {
@@ -512,21 +647,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { ok: false, error: `You only hold ${holding?.units ?? 0} unit${holding?.units === 1 ? '' : 's'} of ${symbol}.` };
       }
 
-      const ref = makeRef('INV');
-      let recorded: TxnDto | undefined;
-
-      if (sessionRef.current?.token || state.account === 'seed') {
-        const outcome = await tradeInLedger(
-          API_BASE,
-          { symbol, units, side, reference: ref },
-          sessionRef.current?.token,
-        );
-        if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
-        if (outcome.status === 'ok') recorded = outcome.state.txns.find((t) => t.ref === ref);
-      }
-
       if (side === 'buy') {
-        const txn: TxnDto = recorded ?? {
+        const txn: TxnDto = {
           id: `tx-${Date.now()}`,
           title: `Bought ${units} ${symbol}`,
           meta: `Invest · ${stock.exchange} · fee ${isUsd ? formatUsd(fee) : formatNgn(fee, 2)}`,
@@ -573,7 +695,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { ok: true, txn };
       }
 
-      const txn: TxnDto = recorded ?? {
+      const txn: TxnDto = {
         id: `tx-${Date.now()}`,
         title: `Sold ${units} ${symbol}`,
         meta: `Invest · ${stock.exchange} · settled to ${stock.currency} wallet`,

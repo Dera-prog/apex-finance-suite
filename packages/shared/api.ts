@@ -5,13 +5,19 @@ export const API = {
   health: '/api/health',
   demoState: '/api/state',
   deposit: '/api/deposit',
+  withdraw: '/api/withdraw',
+  transfer: '/api/transfer',
   trade: '/api/trade',
+  openPlan: '/api/plans',
+  checkout: '/api/payments/checkout',
+  paymentWebhook: '/api/payments/webhook',
   requestCode: '/api/auth/request-code',
   verifyCode: '/api/auth/verify-code',
   logout: '/api/auth/logout',
 } as const;
 
 export const planFundPath = (planId: string) => `/api/plans/${encodeURIComponent(planId)}/fund`;
+export const planWithdrawPath = (planId: string) => `/api/plans/${encodeURIComponent(planId)}/withdraw`;
 
 export type AccountKind = 'seed' | 'new';
 
@@ -70,8 +76,22 @@ export type HealthResponse = {
 export type ErrorResponse = { error: string; message?: string };
 
 export type DepositRequest = { amountMinor: number; source?: string; reference?: string };
+export type WithdrawRequest = { amountMinor: number; bankName?: string; reference?: string };
+export type TransferRequest = { amountMinor: number; recipient?: string; tag?: string; reference?: string };
 export type TradeRequest = { symbol: string; units: number; side: 'buy' | 'sell'; reference?: string };
 export type PlanFundRequest = { amountMinor: number; reference?: string };
+export type PlanWithdrawRequest = { amountMinor: number; reference?: string };
+export type OpenPlanRequest = {
+  name: string;
+  kind: 'flexible' | 'fixed' | 'target';
+  initialMinor: number;
+  targetMinor?: number;
+  monthlyMinor?: number;
+  reference?: string;
+};
+
+export type CheckoutRequest = { amountMinor: number; email?: string; reference?: string };
+export type CheckoutResponse = { authorizationUrl: string; reference: string };
 
 export type RequestCodeRequest = { phone: string };
 export type RequestCodeResponse = {

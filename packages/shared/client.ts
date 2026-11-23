@@ -1,19 +1,23 @@
-import { API, planFundPath } from './api.js';
+import { API, planFundPath, planWithdrawPath } from './api.js';
 import type {
   AuthResponse,
   DepositRequest,
   MobileStateResponse,
+  OpenPlanRequest,
   PlanFundRequest,
+  PlanWithdrawRequest,
   RequestCodeRequest,
   RequestCodeResponse,
   TradeRequest,
+  TransferRequest,
   VerifyCodeRequest,
+  WithdrawRequest,
 } from './api.js';
 
 /**
- * The three writes the ledger accepts. A rejected call carries the API's own
- * code and message; an offline call means the client should fall back to the
- * packaged demo state instead of failing the user.
+ * Every ledger write answers with the whole account state. A rejected call
+ * carries the API's own code and message; an offline call means the server
+ * never saw the request, so a signed-in client must not fake the outcome.
  */
 export type LedgerOutcome =
   | { status: 'ok'; state: MobileStateResponse }
@@ -70,8 +74,20 @@ export const depositToLedger = (base: string, input: DepositRequest, token?: str
 export const tradeInLedger = (base: string, input: TradeRequest, token?: string | null) =>
   post(base, API.trade, input, token);
 
+export const withdrawFromLedger = (base: string, input: WithdrawRequest, token?: string | null) =>
+  post(base, API.withdraw, input, token);
+
+export const transferFromLedger = (base: string, input: TransferRequest, token?: string | null) =>
+  post(base, API.transfer, input, token);
+
 export const fundPlanInLedger = (base: string, planId: string, input: PlanFundRequest, token?: string | null) =>
   post(base, planFundPath(planId), input, token);
+
+export const openPlanInLedger = (base: string, input: OpenPlanRequest, token?: string | null) =>
+  post(base, API.openPlan, input, token);
+
+export const withdrawPlanInLedger = (base: string, planId: string, input: PlanWithdrawRequest, token?: string | null) =>
+  post(base, planWithdrawPath(planId), input, token);
 
 export async function requestSignInCode(base: string, input: RequestCodeRequest): Promise<CodeOutcome> {
   let res: Response;

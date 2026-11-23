@@ -2303,10 +2303,10 @@ function MoneySheet({
     setBusy(true);
     let result: MoneyResult;
     if (mode === 'add') result = await s.addMoney(value, source);
-    else if (mode === 'withdraw') result = s.withdraw(value, source);
-    else if (mode === 'transfer') result = s.transfer(value, recipient);
+    else if (mode === 'withdraw') result = await s.withdraw(value, source);
+    else if (mode === 'transfer') result = await s.transfer(value, recipient);
     else if (mode === 'plan-add' && plan) result = await s.planDeposit(plan.id, value);
-    else if (mode === 'plan-withdraw' && plan) result = s.planWithdraw(plan.id, value);
+    else if (mode === 'plan-withdraw' && plan) result = await s.planWithdraw(plan.id, value);
     else result = { ok: false, error: 'Plan not found.' };
 
     if (!result.ok) {
@@ -2407,15 +2407,18 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
   const [target, setTarget] = useState('500000');
   const [monthly, setMonthly] = useState('25000');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const kinds: { kind: PlanKind; title: string; body: string; icon: typeof Zap; color: string; pastel: string }[] = [
     { kind: 'flexible', title: 'Flexible', body: 'Withdraw anytime, interest monthly', icon: Zap, color: '#1D52CE', pastel: '#DCE9FF' },
     { kind: 'fixed', title: 'Fixed', body: 'Lock for 90 days at a higher rate', icon: Lock, color: '#760A81', pastel: '#F4CCF9' },
     { kind: 'target', title: 'Target', body: 'Save toward a date and amount', icon: Target, color: '#06720C', pastel: '#C3F3C6' },
   ];
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = s.createPlan({
+    setError('');
+    setBusy(true);
+    const result = await s.createPlan({
       name,
       kind,
       initial: parseNgn(initial) ?? toMinor(0),
@@ -2423,6 +2426,7 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
       monthly: kind === 'target' ? (parseNgn(monthly) ?? toMinor(0)) : undefined,
     });
     if (!result.ok) {
+      setBusy(false);
       setError(result.error ?? 'Could not create the plan.');
       return;
     }
@@ -2501,8 +2505,8 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
           wallet.
         </p>
         {error && <p className="form-error">{error}</p>}
-        <button className="btn btn-primary btn-block" type="submit">
-          Create plan
+        <button className="btn btn-primary btn-block" type="submit" disabled={busy} aria-busy={busy}>
+          {busy ? 'Creating…' : 'Create plan'}
         </button>
       </form>
     </Sheet>
