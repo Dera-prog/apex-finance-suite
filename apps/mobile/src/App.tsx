@@ -1860,6 +1860,115 @@ function Sheet({
   );
 }
 
+/** Shown inside the open sheet after a 401, so the draft never leaves the form. */
+function ReauthPanel({
+  phone,
+  action,
+  onVerified,
+  onCancel,
+}: {
+  phone: string;
+  action: string;
+  onVerified: () => void;
+  onCancel: () => void;
+}) {
+  const s = useStore();
+  const [challengeId, setChallengeId] = useState<string | undefined>();
+  const [devCode, setDevCode] = useState<string | undefined>();
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const started = useRef(false);
+
+  const send = async () => {
+    setBusy(true);
+    setError('');
+    const r = await s.reauthStart(phone);
+    setBusy(false);
+    if (!r.ok) {
+      setError(r.error ?? 'Could not send a code.');
+      return;
+    }
+    setChallengeId(r.challengeId);
+    setDevCode(r.devCode);
+    setSent(true);
+  };
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    void send();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    if (code.length < 6) {
+      setError('Enter all six digits.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    const r = await s.reauthVerify({ challengeId, code });
+    setBusy(false);
+    if (!r.ok) {
+      setError(r.error ?? 'That code did not work.');
+      return;
+    }
+    onVerified();
+  };
+
+  return (
+    <div className="reauth">
+      <div className="reauth-note">
+        <ShieldCheck size={18} />
+        <p>
+          <b>Your session ended.</b> Verify {phone} to finish this {action}. Your amount is still here.
+        </p>
+      </div>
+      {error && <p className="form-error">{error}</p>}
+      {sent ? (
+        <form onSubmit={submit}>
+          <label className="field">
+            <span>Six-digit code</span>
+            <input
+              className="code-input"
+              inputMode="numeric"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="••••••"
+              autoFocus
+            />
+          </label>
+          {devCode && <b className="demo-hint">Demo code: {devCode}</b>}
+          <button className="btn btn-primary btn-block" type="submit" disabled={busy} aria-busy={busy}>
+            {busy ? 'Verifying…' : 'Verify and finish'}
+          </button>
+          <button className="demo-link" type="button" onClick={() => void send()} disabled={busy}>
+            Send a new code
+          </button>
+        </form>
+      ) : (
+        <button
+          className="btn btn-primary btn-block"
+          type="button"
+          onClick={() => void send()}
+          disabled={busy}
+          aria-busy={busy}
+        >
+          {busy ? 'Sending…' : 'Send code'}
+        </button>
+      )}
+      <button className="btn btn-ghost btn-block" type="button" onClick={onCancel}>
+        Not now
+      </button>
+    </div>
+  );
+}
+
 function AccountDetailsSheet({
   close,
   open,
@@ -2178,6 +2287,7 @@ function OrderSheet({
   const [units, setUnits] = useState(1);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reauth, setReauth] = useState(false);
   if (!stock) return null;
   const holding = s.holdings.find((h) => h.symbol === symbol);
   const gross = toMinor(units * stock.price);
@@ -2187,12 +2297,16 @@ function OrderSheet({
   const c = (value: Minor) => minorText(stock.currency, value);
   const maxUnits = holding?.units ?? 0;
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const run = async () => {
+    setError('');
     setBusy(true);
     const result: MoneyResult = await s.trade(symbol, units, side);
     if (!result.ok) {
       setBusy(false);
+      if (result.needsAuth) {
+        setReauth(true);
+        return;
+      }
       setError(result.error ?? 'Order could not be placed.');
       return;
     }
@@ -2200,8 +2314,24 @@ function OrderSheet({
     else close();
   };
 
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void run();
+  };
+
   return (
     <Sheet title={`${side === 'buy' ? 'Buy' : 'Sell'} ${symbol}`} subtitle={`${stock.name} · ${stock.exchange}`} close={close}>
+      {reauth ? (
+        <ReauthPanel
+          phone={s.user.phone}
+          action={side === 'buy' ? 'purchase' : 'sale'}
+          onCancel={() => setReauth(false)}
+          onVerified={() => {
+            setReauth(false);
+            void run();
+          }}
+        />
+      ) : (
       <form onSubmit={submit} className="order-form">
         <div className="order-price">
           <span>Market price</span>
@@ -2253,6 +2383,7 @@ function OrderSheet({
         </button>
         <p className="foot-note">Simulated order. No real shares are bought or sold.</p>
       </form>
+      )}
     </Sheet>
   );
 }
@@ -2275,6 +2406,7 @@ function MoneySheet({
   const [recipient, setRecipient] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reauth, setReauth] = useState(false);
   const value = parseNgn(amount) ?? toMinor(0);
 
   const config: Record<MoneyMode, { title: string; subtitle: string; cta: string; available: Minor; prefix: string }> = {
@@ -2298,8 +2430,8 @@ function MoneySheet({
   };
   const cfg = config[mode];
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const run = async () => {
+    setError('');
     setBusy(true);
     let result: MoneyResult;
     if (mode === 'add') result = await s.addMoney(value, source);
@@ -2311,6 +2443,10 @@ function MoneySheet({
 
     if (!result.ok) {
       setBusy(false);
+      if (result.needsAuth) {
+        setReauth(true);
+        return;
+      }
       setError(result.error ?? 'That did not work.');
       return;
     }
@@ -2318,8 +2454,27 @@ function MoneySheet({
     else close();
   };
 
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void run();
+  };
+
+  const actionLabel =
+    mode === 'add' ? 'deposit' : mode === 'withdraw' ? 'withdrawal' : mode === 'transfer' ? 'transfer' : 'plan movement';
+
   return (
     <Sheet title={cfg.title} subtitle={cfg.subtitle} close={close}>
+      {reauth ? (
+        <ReauthPanel
+          phone={s.user.phone}
+          action={actionLabel}
+          onCancel={() => setReauth(false)}
+          onVerified={() => {
+            setReauth(false);
+            void run();
+          }}
+        />
+      ) : (
       <form className="money-form" onSubmit={submit}>
         <label className="amount-field">
           <span>{cfg.prefix}</span>
@@ -2395,6 +2550,7 @@ function MoneySheet({
         </button>
         <p className="foot-note">Demo only. No real funds move and no bank is contacted.</p>
       </form>
+      )}
     </Sheet>
   );
 }
@@ -2408,14 +2564,14 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
   const [monthly, setMonthly] = useState('25000');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reauth, setReauth] = useState(false);
   const kinds: { kind: PlanKind; title: string; body: string; icon: typeof Zap; color: string; pastel: string }[] = [
     { kind: 'flexible', title: 'Flexible', body: 'Withdraw anytime, interest monthly', icon: Zap, color: '#1D52CE', pastel: '#DCE9FF' },
     { kind: 'fixed', title: 'Fixed', body: 'Lock for 90 days at a higher rate', icon: Lock, color: '#760A81', pastel: '#F4CCF9' },
     { kind: 'target', title: 'Target', body: 'Save toward a date and amount', icon: Target, color: '#06720C', pastel: '#C3F3C6' },
   ];
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const run = async () => {
     setError('');
     setBusy(true);
     const result = await s.createPlan({
@@ -2427,6 +2583,10 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
     });
     if (!result.ok) {
       setBusy(false);
+      if (result.needsAuth) {
+        setReauth(true);
+        return;
+      }
       setError(result.error ?? 'Could not create the plan.');
       return;
     }
@@ -2434,8 +2594,24 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
     else close();
   };
 
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void run();
+  };
+
   return (
     <Sheet title="New savings plan" subtitle="Choose the behaviour that fits your goal" close={close} tall>
+      {reauth ? (
+        <ReauthPanel
+          phone={s.user.phone}
+          action="plan"
+          onCancel={() => setReauth(false)}
+          onVerified={() => {
+            setReauth(false);
+            void run();
+          }}
+        />
+      ) : (
       <form className="newplan-form" onSubmit={submit}>
         <div className="kind-grid">
           {kinds.map(({ kind: k, title, body, icon: Icon, color, pastel }) => (
@@ -2509,6 +2685,7 @@ function NewPlanSheet({ close, open }: { close: () => void; open: (o: Overlay) =
           {busy ? 'Creating…' : 'Create plan'}
         </button>
       </form>
+      )}
     </Sheet>
   );
 }

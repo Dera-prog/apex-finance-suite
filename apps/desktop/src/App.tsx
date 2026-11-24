@@ -211,6 +211,122 @@ function ModalShell({
   );
 }
 
+/** Shown inside the open modal after a 401, so the draft never leaves the form. */
+function ReauthPanel({
+  phone,
+  action,
+  onVerified,
+  onCancel,
+}: {
+  phone: string;
+  action: string;
+  onVerified: () => void;
+  onCancel: () => void;
+}) {
+  const store = useStore();
+  const [challengeId, setChallengeId] = useState<string | undefined>();
+  const [devCode, setDevCode] = useState<string | undefined>();
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const started = useRef(false);
+
+  const send = async () => {
+    setBusy(true);
+    setError(null);
+    const r = await store.reauthStart(phone);
+    setBusy(false);
+    if (!r.ok) {
+      setError(r.error ?? 'Could not send a code.');
+      return;
+    }
+    setChallengeId(r.challengeId);
+    setDevCode(r.devCode);
+    setSent(true);
+  };
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    void send();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    if (code.length < 6) {
+      setError('Enter all six digits.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const r = await store.reauthVerify({ challengeId, code });
+    setBusy(false);
+    if (!r.ok) {
+      setError(r.error ?? 'That code did not work.');
+      return;
+    }
+    onVerified();
+  };
+
+  return (
+    <div className="reauth">
+      <div className="reauth-note">
+        <ShieldCheck size={16} />
+        <p>
+          <b>Your session ended.</b> Verify {phone} to finish this {action}. Your entry is still here.
+        </p>
+      </div>
+      <ErrorLine message={error} />
+      {sent ? (
+        <form onSubmit={submit}>
+          <div className="field">
+            <label className="field-label" htmlFor="reauth-code">
+              Six-digit code
+            </label>
+            <input
+              id="reauth-code"
+              className="input"
+              inputMode="numeric"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="••••••"
+              autoFocus
+            />
+          </div>
+          {devCode && (
+            <p className="demo-hint" style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>
+              Demo code: {devCode}
+            </p>
+          )}
+          <button className="btn btn-primary btn-block" type="submit" disabled={busy} aria-busy={busy}>
+            {busy ? 'Verifying…' : 'Verify and finish'}
+          </button>
+          <button className="btn btn-ghost btn-block" type="button" onClick={() => void send()} disabled={busy}>
+            Send a new code
+          </button>
+        </form>
+      ) : (
+        <button
+          className="btn btn-primary btn-block"
+          type="button"
+          onClick={() => void send()}
+          disabled={busy}
+          aria-busy={busy}
+        >
+          {busy ? 'Sending…' : 'Send code'}
+        </button>
+      )}
+      <button className="btn btn-ghost btn-block" type="button" onClick={onCancel}>
+        Not now
+      </button>
+    </div>
+  );
+}
+
 function AmountField({
   value,
   onChange,
@@ -269,6 +385,7 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
   const [tag, setTag] = useState('@chinedu');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reauth, setReauth] = useState(false);
 
   const value = parseNgn(amount) ?? toMinor(0);
   const bank = store.banks.find((b) => b.id === bankId) ?? store.banks[0];
@@ -280,8 +397,7 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
     transfer: { title: 'Send money', sub: 'Money leaves your wallet instantly. No fee in this demo.' },
   }[mode];
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const run = async () => {
     setError(null);
     setBusy(true);
     const result =
@@ -292,14 +408,34 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
           : await store.transfer(value, `${recipient}${tag ? ` (${tag})` : ''}`);
     if (!result.ok) {
       setBusy(false);
+      if (result.needsAuth) {
+        setReauth(true);
+        return;
+      }
       setError(result.error ?? 'Something went wrong.');
       return;
     }
     onClose();
   };
 
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void run();
+  };
+
   return (
     <ModalShell title={copy.title} sub={copy.sub} onClose={onClose}>
+      {reauth ? (
+        <ReauthPanel
+          phone={store.user.phone}
+          action={mode === 'add' ? 'deposit' : mode === 'withdraw' ? 'withdrawal' : 'transfer'}
+          onCancel={() => setReauth(false)}
+          onVerified={() => {
+            setReauth(false);
+            void run();
+          }}
+        />
+      ) : (
       <form onSubmit={submit}>
         <AmountField value={amount} onChange={setAmount} />
         <QuickAmounts onPick={setAmount} />
@@ -367,6 +503,7 @@ function MoneyModal({ mode, onClose }: { mode: 'add' | 'withdraw' | 'transfer'; 
           Demo only. No real funds move.
         </p>
       </form>
+      )}
     </ModalShell>
   );
 }
@@ -382,11 +519,11 @@ function NewPlanModal({ onClose }: { onClose: () => void }) {
   const [monthly, setMonthly] = useState('10000');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reauth, setReauth] = useState(false);
 
   const rate = kind === 'fixed' ? 16 : kind === 'target' ? 14 : 12;
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const run = async () => {
     setError(null);
     setBusy(true);
     const result = await store.createPlan({
@@ -398,14 +535,34 @@ function NewPlanModal({ onClose }: { onClose: () => void }) {
     });
     if (!result.ok) {
       setBusy(false);
+      if (result.needsAuth) {
+        setReauth(true);
+        return;
+      }
       setError(result.error ?? 'Could not open the plan.');
       return;
     }
     onClose();
   };
 
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void run();
+  };
+
   return (
     <ModalShell title="Create a savings plan" sub="The rate and early-access rule are fixed when you open the plan." onClose={onClose}>
+      {reauth ? (
+        <ReauthPanel
+          phone={store.user.phone}
+          action="plan"
+          onCancel={() => setReauth(false)}
+          onVerified={() => {
+            setReauth(false);
+            void run();
+          }}
+        />
+      ) : (
       <form onSubmit={submit}>
         <div className="type-picker" role="radiogroup" aria-label="Plan type">
           {(['flexible', 'fixed', 'target'] as PlanKind[]).map((k) => (
@@ -502,6 +659,7 @@ function NewPlanModal({ onClose }: { onClose: () => void }) {
           Rates are illustrative. Early access on fixed plans may forfeit interest.
         </p>
       </form>
+      )}
     </ModalShell>
   );
 }
@@ -519,20 +677,29 @@ function PlanMoneyModal({
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reauth, setReauth] = useState(false);
   const value = parseNgn(amount) ?? toMinor(0);
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const run = async () => {
     setError(null);
     setBusy(true);
     const result =
       mode === 'deposit' ? await store.planDeposit(plan.id, value) : await store.planWithdraw(plan.id, value);
     if (!result.ok) {
       setBusy(false);
+      if (result.needsAuth) {
+        setReauth(true);
+        return;
+      }
       setError(result.error ?? 'Could not complete this movement.');
       return;
     }
     onClose();
+  };
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void run();
   };
 
   return (
@@ -554,6 +721,17 @@ function PlanMoneyModal({
           {plan.rate}% p.a. · {plan.kind === 'fixed' ? 'fixed' : plan.kind === 'target' ? 'target' : 'flexible'}
         </small>
       </div>
+      {reauth ? (
+        <ReauthPanel
+          phone={store.user.phone}
+          action={mode === 'deposit' ? 'plan top-up' : 'plan withdrawal'}
+          onCancel={() => setReauth(false)}
+          onVerified={() => {
+            setReauth(false);
+            void run();
+          }}
+        />
+      ) : (
       <form onSubmit={submit}>
         <AmountField value={amount} onChange={setAmount} />
         {mode === 'deposit' && <QuickAmounts onPick={setAmount} />}
@@ -582,6 +760,7 @@ function PlanMoneyModal({
           {mode === 'deposit' ? 'Confirm top-up' : 'Move to wallet'} <ArrowRight size={15} />
         </button>
       </form>
+      )}
     </ModalShell>
   );
 }
@@ -603,6 +782,7 @@ function TradeModal({
   const [units, setUnits] = useState('10');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reauth, setReauth] = useState(false);
   const holding = store.holdings.find((h) => h.symbol === symbol);
   const unitCount = Number(units || 0);
   const gross = toMinor(unitCount * stock.price);
@@ -611,17 +791,25 @@ function TradeModal({
   const cur = stock.currency === 'USD' ? '$' : '₦';
   const fmt = (v: Minor) => (stock.currency === 'USD' ? formatUsd(v) : formatNgn(v, 2));
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const run = async () => {
     setError(null);
     setBusy(true);
     const result = await store.trade(symbol, unitCount, side);
     if (!result.ok) {
       setBusy(false);
+      if (result.needsAuth) {
+        setReauth(true);
+        return;
+      }
       setError(result.error ?? 'Order could not be placed.');
       return;
     }
     onClose();
+  };
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void run();
   };
 
   return (
@@ -647,6 +835,17 @@ function TradeModal({
           {stock.change}% today · {stock.sector}
         </small>
       </div>
+      {reauth ? (
+        <ReauthPanel
+          phone={store.user.phone}
+          action={side === 'buy' ? 'purchase' : 'sale'}
+          onCancel={() => setReauth(false)}
+          onVerified={() => {
+            setReauth(false);
+            void run();
+          }}
+        />
+      ) : (
       <form onSubmit={submit}>
         <div className="field">
           <label className="field-label" htmlFor="units">
@@ -691,6 +890,7 @@ function TradeModal({
           Shares can fall as well as rise. This is a demo order; no broker is connected.
         </p>
       </form>
+      )}
     </ModalShell>
   );
 }

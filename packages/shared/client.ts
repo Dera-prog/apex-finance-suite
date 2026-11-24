@@ -22,6 +22,7 @@ import type {
 export type LedgerOutcome =
   | { status: 'ok'; state: MobileStateResponse }
   | { status: 'rejected'; code: string; error: string }
+  | { status: 'unauthorized' }
   | { status: 'offline' };
 
 export type AuthOutcome =
@@ -68,6 +69,7 @@ async function post(base: string, path: string, body: unknown, token?: string | 
 
   const payload: unknown = await res.json().catch(() => null);
   if (res.ok) return { status: 'ok', state: payload as MobileStateResponse };
+  if (res.status === 401) return { status: 'unauthorized' };
   if (unreachable(res, payload)) return { status: 'offline' };
   return { status: 'rejected', ...rejection(payload) };
 }

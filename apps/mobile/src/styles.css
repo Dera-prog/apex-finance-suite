@@ -3664,3 +3664,27 @@ html[data-theme='dark'] .kind-card.active {
   border-color: color-mix(in srgb, var(--plan-tint) 55%, #0b1b45);
   background: color-mix(in srgb, var(--plan-tint) 16%, #0b1b45);
 }
+
+.reauth {
+  display: grid;
+  gap: 12px;
+}
+.reauth-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--blue-50);
+  color: var(--ink-800);
+}
+.reauth-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--blue-600);
+}
+.reauth-note p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}

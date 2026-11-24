@@ -3227,3 +3227,36 @@ html[data-theme='dark'] .btn-glass {
 html[data-theme='dark'] .plan-kind {
   filter: brightness(2.1) saturate(1.15);
 }
+
+/* re-auth inside an open modal: the draft stays in the form behind this panel */
+.reauth {
+  display: grid;
+  gap: 12px;
+}
+
+.reauth form {
+  display: grid;
+  gap: 12px;
+}
+
+.reauth-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--blue-50);
+  color: var(--ink-800);
+}
+
+.reauth-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--blue-600);
+}
+
+.reauth-note p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}

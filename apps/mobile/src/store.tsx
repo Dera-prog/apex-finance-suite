@@ -160,7 +160,7 @@ function load(): { state: MobileState; stored: boolean } {
   }
 }
 
-export type MoneyResult = { ok: boolean; error?: string; txn?: TxnDto };
+export type MoneyResult = { ok: boolean; error?: string; txn?: TxnDto; needsAuth?: boolean };
 export type PlanResult = MoneyResult & { plan?: PlanDto };
 export type SignInResult = { ok: boolean; error?: string; challengeId?: string; devCode?: string; offline?: boolean };
 export type VerifySignInInput = {
@@ -193,6 +193,8 @@ type Store = MobileState & {
   signInDemo: () => void;
   requestSignInCode: (phone: string) => Promise<SignInResult>;
   verifySignInCode: (input: VerifySignInInput) => Promise<{ ok: boolean; error?: string }>;
+  reauthStart: (phone: string) => Promise<{ ok: boolean; challengeId?: string; devCode?: string; error?: string }>;
+  reauthVerify: (input: { challengeId?: string; code: string }) => Promise<{ ok: boolean; error?: string }>;
   signOutAccount: () => Promise<void>;
   user: Profile;
 };
@@ -213,6 +215,8 @@ const clock = () => new Date();
 /** A signed-in write that never reached the server must fail, not quietly change a local copy. */
 const OFFLINE_WRITE = 'Could not reach the Apex server. Check your connection and try again.';
 const SIGN_IN_FIRST = 'Sign in to move money in this account.';
+/** A 401 means the write was refused before touching the ledger, so the draft can be retried in place. */
+const SESSION_ENDED = 'Your session ended. Verify your phone to finish this action.';
 
 /** Server responses replace balances, plans and history; device preferences stay local. */
 const adopt = (remote: MobileStateResponse) => (s: MobileState): MobileState => ({
@@ -308,6 +312,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           { amountMinor: amount, source: source.trim(), reference: ref },
           token,
         );
+        if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
@@ -345,6 +350,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       if (token || state.account === 'seed') {
         const outcome = await withdrawFromLedger(API_BASE, { amountMinor: amount, bankName, reference: ref }, token);
+        if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
@@ -385,6 +391,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       if (token || state.account === 'seed') {
         const outcome = await transferFromLedger(API_BASE, { amountMinor: amount, recipient, reference: ref }, token);
+        if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
@@ -442,6 +449,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           },
           token,
         );
+        if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const plan = outcome.state.plans.find((p) => !before.has(p.id)) ?? outcome.state.plans[0];
@@ -516,6 +524,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           { amountMinor: amount, reference: ref },
           token,
         );
+        if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
@@ -561,6 +570,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       if (token || state.account === 'seed') {
         const outcome = await withdrawPlanInLedger(API_BASE, id, { amountMinor: amount, reference: ref }, token);
+        if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
@@ -621,6 +631,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           { symbol, units, side, reference: ref },
           token,
         );
+        if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
@@ -800,6 +811,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [notify, setSession, startFresh, signInDemo],
   );
 
+  const reauthStart = useCallback<Store['reauthStart']>(async (phone) => {
+    const outcome = await requestSignInCodeApi(API_BASE, { phone });
+    if (outcome.status === 'offline') return { ok: false, error: OFFLINE_WRITE };
+    if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
+    return { ok: true, challengeId: outcome.challengeId, devCode: outcome.devCode };
+  }, []);
+
+  /** Unlike verifySignInCode, this never falls back to the device demo: a refused write must not look done. */
+  const reauthVerify = useCallback<Store['reauthVerify']>(
+    async (input) => {
+      if (!input.challengeId) return { ok: false, error: 'That code expired. Send a new one.' };
+      const outcome = await verifySignInCodeApi(API_BASE, { challengeId: input.challengeId, code: input.code });
+      if (outcome.status === 'offline') return { ok: false, error: OFFLINE_WRITE };
+      if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
+      if (outcome.status === 'ok') {
+        setSession({ token: outcome.auth.token });
+        setState((s) => ({ ...outcome.auth.state, prefs: s.prefs }));
+        return { ok: true };
+      }
+      return { ok: false, error: 'Could not verify that code.' };
+    },
+    [setSession],
+  );
+
   const signOutAccount = useCallback<Store['signOutAccount']>(async () => {
     const token = sessionRef.current?.token;
     setSession(null);
@@ -841,9 +876,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       signInDemo,
       requestSignInCode,
       verifySignInCode,
+      reauthStart,
+      reauthVerify,
       signOutAccount,
     }),
-    [state, savings, investNgn, investUsd, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, setPref, reset, startFresh, signInDemo, requestSignInCode, verifySignInCode, signOutAccount],
+    [state, savings, investNgn, investUsd, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, setPref, reset, startFresh, signInDemo, requestSignInCode, verifySignInCode, reauthStart, reauthVerify, signOutAccount],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

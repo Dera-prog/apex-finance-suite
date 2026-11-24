@@ -97,7 +97,7 @@
         <p>Sessions last 30 days, but when they end mid-flow the user should re-authenticate in place, not restart the transfer.</p>
         <div class="beforeafter">
           <div class="b"><small>Before</small>401 → generic error</div>
-          <div class="a"><small>After</small>"Sign in again" sheet → resume draft</div>
+          <div class="a"><small>Shipped</small>"Sign in again" panel inside the open sheet → verify → retry with the same draft</div>
         </div>
         <div class="accept"><b>Acceptance</b>A 401 opens the OTP sheet over the current screen; after verification the original action retries with the same payload; no duplicate entry.</div>
       </article>
