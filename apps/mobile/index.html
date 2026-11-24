@@ -14,11 +14,19 @@
     <link rel="preload" as="image" href="./assets/hero-spheres.webp" type="image/webp" />
     <script>
       try {
-        var saved = JSON.parse(localStorage.getItem('apex.mobile.v1') || 'null');
+        var saved = JSON.parse(localStorage.getItem('apex.mobile.v2') || 'null');
+        var prefs = (saved && saved.prefs) || {};
+        var theme =
+          prefs.theme === 'light' || prefs.theme === 'dark' || prefs.theme === 'system'
+            ? prefs.theme
+            : typeof prefs.darkMode === 'boolean'
+              ? prefs.darkMode
+                ? 'dark'
+                : 'light'
+              : 'system';
         var dark =
-          saved && saved.prefs && typeof saved.prefs.darkMode === 'boolean'
-            ? saved.prefs.darkMode
-            : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          theme === 'dark' ||
+          (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
         document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#050F2C' : '#F5F5F8');
       } catch (e) {}

@@ -9,11 +9,18 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <script>
       try {
-        var saved = JSON.parse(localStorage.getItem('apex.desktop.v2') || 'null');
+        var saved = JSON.parse(localStorage.getItem('apex.desktop.v2') || 'null') || {};
+        var theme =
+          saved.theme === 'light' || saved.theme === 'dark' || saved.theme === 'system'
+            ? saved.theme
+            : typeof saved.darkMode === 'boolean'
+              ? saved.darkMode
+                ? 'dark'
+                : 'light'
+              : 'system';
         var dark =
-          saved && typeof saved.darkMode === 'boolean'
-            ? saved.darkMode
-            : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          theme === 'dark' ||
+          (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
         document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#050F2C' : '#F5F6F8');
       } catch (e) {}

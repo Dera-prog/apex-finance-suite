@@ -23,6 +23,8 @@ import type { Minor } from '@shared/money';
 
 export type Profile = ApiProfile & { bank: string };
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 type Prefs = {
   biometric: boolean;
   priceAlerts: boolean;
@@ -31,10 +33,10 @@ type Prefs = {
   pinAlerts: boolean;
   emailAlerts: boolean;
   extHours: boolean;
-  darkMode: boolean;
+  theme: ThemeMode;
 };
 
-type PrefKey = 'biometric' | 'priceAlerts' | 'productNews' | 'pinAlerts' | 'emailAlerts' | 'extHours' | 'darkMode';
+type PrefKey = 'biometric' | 'priceAlerts' | 'productNews' | 'pinAlerts' | 'emailAlerts' | 'extHours';
 
 export type DesktopState = Omit<MobileStateResponse, 'profile'> & { profile: Profile } & Prefs;
 
@@ -84,7 +86,7 @@ const prefsOf = (s: DesktopState): Prefs => ({
   pinAlerts: s.pinAlerts,
   emailAlerts: s.emailAlerts,
   extHours: s.extHours,
-  darkMode: s.darkMode,
+  theme: s.theme,
 });
 
 function seedPrefs(): Prefs {
@@ -96,7 +98,7 @@ function seedPrefs(): Prefs {
     pinAlerts: true,
     emailAlerts: true,
     extHours: false,
-    darkMode: prefersDark(),
+    theme: 'system',
   };
 }
 
@@ -162,13 +164,24 @@ function load(): { state: DesktopState; stored: boolean } {
     if (typeof parsed.walletNgnKobo !== 'number' || !Array.isArray(parsed.plans)) {
       return { state: seed(), stored: false };
     }
+    const parsedRaw = parsed as Partial<DesktopState> & { darkMode?: boolean };
+    const { darkMode: legacyDark, ...parsedRest } = parsedRaw;
     const base = seed();
+    const theme: ThemeMode =
+      parsedRest.theme === 'light' || parsedRest.theme === 'dark' || parsedRest.theme === 'system'
+        ? parsedRest.theme
+        : typeof legacyDark === 'boolean'
+          ? legacyDark
+            ? 'dark'
+            : 'light'
+          : base.theme;
     return {
       state: {
         ...base,
-        ...parsed,
-        account: parsed.account ?? 'seed',
-        profile: { ...base.profile, ...parsed.profile },
+        ...parsedRest,
+        account: parsedRest.account ?? 'seed',
+        profile: { ...base.profile, ...parsedRest.profile },
+        theme,
       },
       stored: true,
     };
@@ -213,6 +226,12 @@ type Store = DesktopState & {
   reauthStart: (phone: string) => Promise<{ ok: boolean; challengeId?: string; devCode?: string; error?: string }>;
   reauthVerify: (input: { challengeId?: string; code: string }) => Promise<{ ok: boolean; error?: string }>;
   signOutAccount: () => Promise<void>;
+  dark: boolean;
+  theme: ThemeMode;
+  setTheme: (mode: ThemeMode) => void;
+  lastSyncedAt: number | null;
+  refreshing: boolean;
+  refreshState: () => Promise<void>;
   user: Profile;
 };
 
@@ -244,6 +263,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [boot] = useState(load);
   const [state, setState] = useState<DesktopState>(boot.state);
   const [toast, setToast] = useState<string | null>(null);
+  const [systemDark, setSystemDark] = useState(prefersDark);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshingRef = useRef(false);
   const timer = useRef<number | null>(null);
   const sessionRef = useRef<Session | null>(loadSession());
 
@@ -257,16 +280,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /** Every server read passes through here so the sync line tells the truth. */
+  const applyRemote = useCallback((remote: MobileStateResponse) => {
+    setState((s) => adopt(remote)(s));
+    setLastSyncedAt(Date.now());
+  }, []);
+
+  const refreshState = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+    try {
+      const token = sessionRef.current?.token;
+      if (token) {
+        const outcome = await syncLedgerState(API_BASE, token);
+        if (outcome.status === 'ok') applyRemote(outcome.state);
+        else if (outcome.status === 'unauthorized') setSession(null);
+      } else {
+        const remote = await fetchRemoteState();
+        if (remote) applyRemote(remote);
+      }
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
+  }, [applyRemote, setSession]);
+
   useEffect(() => {
     if (boot.stored || sessionRef.current) return;
     let alive = true;
     void fetchRemoteState().then((remote) => {
-      if (alive && remote) setState((current) => ({ ...remote, profile: { ...remote.profile, bank: user.bank }, ...prefsOf(current) }));
+      if (alive && remote) applyRemote(remote);
     });
     return () => {
       alive = false;
     };
-  }, [boot.stored]);
+  }, [boot.stored, applyRemote]);
 
   useEffect(() => {
     const token = sessionRef.current?.token;
@@ -274,20 +323,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let alive = true;
     void syncLedgerState(API_BASE, token).then((outcome) => {
       if (!alive) return;
-      if (outcome.status === 'ok') {
-        setState((current) => ({
-          ...outcome.state,
-          profile: { ...outcome.state.profile, bank: user.bank },
-          ...prefsOf(current),
-        }));
-      } else if (outcome.status === 'unauthorized') {
-        setSession(null);
-      }
+      if (outcome.status === 'ok') applyRemote(outcome.state);
+      else if (outcome.status === 'unauthorized') setSession(null);
     });
     return () => {
       alive = false;
     };
-  }, [setSession]);
+  }, [applyRemote, setSession]);
 
   useEffect(() => {
     try {
@@ -298,14 +340,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (event: MediaQueryListEvent) => setSystemDark(event.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  const theme = state.theme;
+  const dark = theme === 'system' ? systemDark : theme === 'dark';
+
+  useEffect(() => {
     const root = document.documentElement;
-    const dark = state.darkMode;
     root.dataset.theme = dark ? 'dark' : 'light';
     root.style.colorScheme = dark ? 'dark' : 'light';
     document
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute('content', dark ? '#050F2C' : '#F5F6F8');
-  }, [state.darkMode]);
+  }, [dark]);
 
   const notify = useCallback((message: string) => {
     setToast(message);
@@ -334,7 +385,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
       if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
       if (outcome.status === 'ok') {
-        setState(adopt(outcome.state));
+        applyRemote(outcome.state);
         notify(`${formatNgn(amount)} added to your wallet`);
         return { ok: true };
       }
@@ -356,7 +407,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, walletNgnKobo: add(s.walletNgnKobo, amount), txns: pushTxn(txn)(s) }));
     notify(`${formatNgn(amount)} added to your wallet`);
     return { ok: true };
-  }, [notify, state.account]);
+  }, [notify, state.account, applyRemote]);
 
   const withdraw = useCallback<Store['withdraw']>(async (amount, bankName) => {
     if (!Number.isInteger(amount) || amount < MIN_DEPOSIT) return { ok: false, error: 'Enter at least ₦100.' };
@@ -368,7 +419,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
       if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
       if (outcome.status === 'ok') {
-        setState(adopt(outcome.state));
+        applyRemote(outcome.state);
         notify(`${formatNgn(amount)} sent to ${bankName}`);
         return { ok: true };
       }
@@ -391,7 +442,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, walletNgnKobo: sub(s.walletNgnKobo, amount), txns: pushTxn(txn)(s) }));
     notify(`${formatNgn(amount)} sent to ${bankName}`);
     return { ok: true };
-  }, [notify, state.account, state.walletNgnKobo]);
+  }, [notify, state.account, state.walletNgnKobo, applyRemote]);
 
   const transfer = useCallback<Store['transfer']>(async (amount, name) => {
     if (!Number.isInteger(amount) || amount < MIN_TRANSFER) return { ok: false, error: 'Enter at least ₦50.' };
@@ -405,7 +456,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
       if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
       if (outcome.status === 'ok') {
-        setState(adopt(outcome.state));
+        applyRemote(outcome.state);
         notify(`${formatNgn(amount)} sent to ${recipient}`);
         return { ok: true };
       }
@@ -428,7 +479,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, walletNgnKobo: sub(s.walletNgnKobo, amount), txns: pushTxn(txn)(s) }));
     notify(`${formatNgn(amount)} sent to ${recipient}`);
     return { ok: true };
-  }, [notify, state.account, state.walletNgnKobo]);
+  }, [notify, state.account, state.walletNgnKobo, applyRemote]);
 
   const createPlan = useCallback<Store['createPlan']>(async (input) => {
     if (!input.name.trim()) return { ok: false, error: 'Give the plan a name.' };
@@ -458,7 +509,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
       if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
       if (outcome.status === 'ok') {
-        setState(adopt(outcome.state));
+        applyRemote(outcome.state);
         notify(`${name} opened with ${formatNgn(input.initial)}`);
         return { ok: true };
       }
@@ -506,7 +557,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
     notify(`${plan.name} opened with ${formatNgn(input.initial)}`);
     return { ok: true };
-  }, [notify, state.account, state.walletNgnKobo]);
+  }, [notify, state.account, state.walletNgnKobo, applyRemote]);
 
   const planDeposit = useCallback<Store['planDeposit']>(async (id, amount) => {
     const plan = state.plans.find((p) => p.id === id);
@@ -521,7 +572,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
       if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
       if (outcome.status === 'ok') {
-        setState(adopt(outcome.state));
+        applyRemote(outcome.state);
         notify(`${formatNgn(amount)} added to ${plan.name}`);
         return { ok: true };
       }
@@ -549,7 +600,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
     notify(`${formatNgn(amount)} added to ${plan.name}`);
     return { ok: true };
-  }, [notify, state.account, state.plans, state.walletNgnKobo]);
+  }, [notify, state.account, state.plans, state.walletNgnKobo, applyRemote]);
 
   const planWithdraw = useCallback<Store['planWithdraw']>(async (id, amount) => {
     const plan = state.plans.find((p) => p.id === id);
@@ -563,7 +614,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
       if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
       if (outcome.status === 'ok') {
-        setState(adopt(outcome.state));
+        applyRemote(outcome.state);
         notify(`${formatNgn(amount)} moved from ${plan.name} to your wallet`);
         return { ok: true };
       }
@@ -594,7 +645,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
     notify(`${formatNgn(amount)} moved from ${plan.name} to your wallet`);
     return { ok: true };
-  }, [notify, state.account, state.plans]);
+  }, [notify, state.account, state.plans, applyRemote]);
 
   const trade = useCallback<Store['trade']>(async (symbol, units, side) => {
     const stock = stocks.find((s) => s.symbol === symbol);
@@ -616,7 +667,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (outcome.status === 'unauthorized') return { ok: false, needsAuth: true, error: SESSION_ENDED };
       if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
       if (outcome.status === 'ok') {
-        setState(adopt(outcome.state));
+        applyRemote(outcome.state);
         notify(
           side === 'buy' ? `${units} ${symbol} bought at ${priceText}` : `${units} ${symbol} sold`,
         );
@@ -715,7 +766,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
     notify(`${units} ${symbol} sold`);
     return { ok: true };
-  }, [notify, state.account, state.holdings, state.walletNgnKobo, state.walletUsdCents]);
+  }, [notify, state.account, state.holdings, state.walletNgnKobo, state.walletUsdCents, applyRemote]);
 
   const markAllRead = useCallback(() => {
     setState((s) => ({ ...s, notifications: s.notifications.map((n) => ({ ...n, unread: false })) }));
@@ -730,25 +781,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reset = useCallback(() => {
-    setState((s) => ({ ...seed(), darkMode: s.darkMode }));
+    setState((s) => ({ ...seed(), theme: s.theme }));
     notify('Demo account reset to its starting balances');
     void fetchRemoteState().then((remote) => {
-      if (remote) setState((current) => ({ ...remote, profile: { ...remote.profile, bank: user.bank }, ...prefsOf(current) }));
+      if (remote) applyRemote(remote);
     });
-  }, [notify]);
+  }, [notify, applyRemote]);
 
   const startFresh = useCallback<Store['startFresh']>((input) => {
-    setState((s) => ({ ...freshAccount(input), darkMode: s.darkMode }));
+    setState((s) => ({ ...freshAccount(input), theme: s.theme }));
     notify('Account created. Add money to get started.');
   }, [notify]);
 
   const signInDemo = useCallback(() => {
-    setState((s) => ({ ...seed(), darkMode: s.darkMode }));
+    setState((s) => ({ ...seed(), theme: s.theme }));
     notify('Signed in to the demo account');
     void fetchRemoteState().then((remote) => {
-      if (remote) setState((current) => ({ ...remote, profile: { ...remote.profile, bank: user.bank }, ...prefsOf(current) }));
+      if (remote) applyRemote(remote);
     });
-  }, [notify]);
+  }, [notify, applyRemote]);
 
   const requestSignInCode = useCallback<Store['requestSignInCode']>(async (phone) => {
     const outcome = await requestSignInCodeApi(API_BASE, { phone });
@@ -774,6 +825,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             profile: { ...outcome.auth.state.profile, bank: user.bank },
             ...prefsOf(s),
           }));
+          setLastSyncedAt(Date.now());
           notify(
             input.mode === 'signup'
               ? `Welcome to Apex${input.name ? `, ${input.name.trim().split(/\s+/)[0]}` : ''}`
@@ -815,6 +867,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           profile: { ...outcome.auth.state.profile, bank: user.bank },
           ...prefsOf(s),
         }));
+        setLastSyncedAt(Date.now());
         return { ok: true };
       }
       return { ok: false, error: 'Could not verify that code.' };
@@ -825,9 +878,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const signOutAccount = useCallback<Store['signOutAccount']>(async () => {
     const token = sessionRef.current?.token;
     setSession(null);
-    setState((s) => ({ ...seed(), darkMode: s.darkMode }));
+    setState((s) => ({ ...seed(), theme: s.theme }));
     if (token) await signOutLedger(API_BASE, token);
   }, [setSession]);
+
+  const setTheme = useCallback<Store['setTheme']>((mode) => {
+    setState((s) => ({ ...s, theme: mode }));
+  }, []);
 
   const savings = useMemo(() => sum(state.plans.map((p) => p.balanceKobo)), [state.plans]);
   const investNgn = useMemo(
@@ -859,6 +916,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       markAllRead,
       toggleSetting,
       toggleBalance,
+      dark,
+      theme,
+      setTheme,
+      lastSyncedAt,
+      refreshing,
+      refreshState,
       reset,
       startFresh,
       signInDemo,
@@ -868,7 +931,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reauthVerify,
       signOutAccount,
     }),
-    [state, savings, investNgn, investUsd, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, toggleSetting, toggleBalance, reset, startFresh, signInDemo, requestSignInCode, verifySignInCode, reauthStart, reauthVerify, signOutAccount],
+    [state, savings, investNgn, investUsd, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, toggleSetting, toggleBalance, dark, theme, setTheme, lastSyncedAt, refreshing, refreshState, reset, startFresh, signInDemo, requestSignInCode, verifySignInCode, reauthStart, reauthVerify, signOutAccount],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

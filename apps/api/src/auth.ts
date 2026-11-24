@@ -9,6 +9,7 @@ import type {
 import { db } from './db.js';
 import { LEDGER_OWNER } from './env.js';
 import { readLedgerState } from './ledger.js';
+import { waitCopy } from './rate-limit.js';
 import { sendLoginCode, smsConfigured } from './sms.js';
 
 const CODE_TTL = '10 minutes';
@@ -84,13 +85,23 @@ export async function requestCode(input: { phone?: unknown }): Promise<RequestCo
   const phone = canonicalPhone(input.phone);
 
   return withDb(async (query) => {
-    const recent = await query.query<{ count: string }>(
-      `select count(*)::text as count from auth_challenges
+    const recent = await query.query<{ count: string; wait: number }>(
+      `select count(*)::text as count,
+              coalesce(
+                greatest(1, ceil(extract(epoch from (min(created_at) + interval '${CODE_TTL}' - now())))),
+                1
+              )::int as wait
+         from auth_challenges
         where phone = $1 and created_at > now() - interval '${CODE_TTL}'`,
       [phone],
     );
     if (Number(recent.rows[0]?.count ?? 0) >= MAX_CODES_PER_WINDOW) {
-      throw new AuthError('too_many_requests', 429, 'Too many codes requested. Try again in a few minutes.');
+      const wait = recent.rows[0]?.wait ?? 600;
+      throw new AuthError(
+        'too_many_requests',
+        429,
+        `Too many codes requested. Try again in ${waitCopy(wait)}.`,
+      );
     }
 
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');

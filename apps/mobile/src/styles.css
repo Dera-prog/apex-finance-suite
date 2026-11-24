@@ -3688,3 +3688,109 @@ html[data-theme='dark'] .kind-card.active {
   font-size: 13px;
   line-height: 1.45;
 }
+
+/* --- sync freshness --- */
+.sync-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink-400);
+}
+
+.sync-line.light {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.sync-line.stale {
+  opacity: 0.72;
+}
+
+.spin {
+  animation: sync-spin 0.9s linear infinite;
+}
+
+@keyframes sync-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- six-cell code entry --- */
+.code-cells {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.code-cells .code-cell {
+  min-height: 54px;
+  padding: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.code-cells.invalid .code-cell {
+  border-color: #d92d20;
+  animation: code-shake 0.32s ease;
+}
+
+@keyframes code-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
+.resend-row {
+  display: grid;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.resend-wait {
+  display: block;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-400);
+}
+
+/* --- theme choice --- */
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 4px 12px 12px;
+}
+
+.theme-options button {
+  padding: 9px 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-600);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.theme-options button.active {
+  border-color: var(--blue-600);
+  background: var(--blue-600);
+  color: #fff;
+}

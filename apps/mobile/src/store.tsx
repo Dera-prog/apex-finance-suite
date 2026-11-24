@@ -23,6 +23,8 @@ import type { Minor } from '@shared/money';
 
 export type { Profile };
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 type Prefs = {
   biometric: boolean;
   priceAlerts: boolean;
@@ -31,7 +33,7 @@ type Prefs = {
   pinAlerts: boolean;
   emailAlerts: boolean;
   extHours: boolean;
-  darkMode: boolean;
+  theme: ThemeMode;
 };
 
 export type MobileState = MobileStateResponse & { prefs: Prefs };
@@ -82,7 +84,7 @@ const seedPrefs = (): Prefs => ({
   pinAlerts: true,
   emailAlerts: true,
   extHours: false,
-  darkMode: prefersDark(),
+  theme: 'system',
 });
 
 const seed = (): MobileState => ({ ...demoMobileState(), prefs: seedPrefs() });
@@ -145,13 +147,23 @@ function load(): { state: MobileState; stored: boolean } {
       return { state: seed(), stored: false };
     }
     const base = seed();
+    const storedPrefs = (parsed.prefs ?? {}) as Partial<Prefs> & { darkMode?: boolean };
+    const { darkMode: legacyDark, ...modernPrefs } = storedPrefs;
+    const theme: ThemeMode =
+      modernPrefs.theme === 'light' || modernPrefs.theme === 'dark' || modernPrefs.theme === 'system'
+        ? modernPrefs.theme
+        : typeof legacyDark === 'boolean'
+          ? legacyDark
+            ? 'dark'
+            : 'light'
+          : base.prefs.theme;
     return {
       state: {
         ...base,
         ...parsed,
         account: parsed.account ?? 'seed',
         profile: { ...base.profile, ...parsed.profile },
-        prefs: { ...base.prefs, ...parsed.prefs },
+        prefs: { ...base.prefs, ...modernPrefs, theme },
       },
       stored: true,
     };
@@ -196,6 +208,12 @@ type Store = MobileState & {
   reauthStart: (phone: string) => Promise<{ ok: boolean; challengeId?: string; devCode?: string; error?: string }>;
   reauthVerify: (input: { challengeId?: string; code: string }) => Promise<{ ok: boolean; error?: string }>;
   signOutAccount: () => Promise<void>;
+  dark: boolean;
+  theme: ThemeMode;
+  setTheme: (mode: ThemeMode) => void;
+  lastSyncedAt: number | null;
+  refreshing: boolean;
+  refreshState: () => Promise<void>;
   user: Profile;
 };
 
@@ -228,6 +246,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [boot] = useState(load);
   const [state, setState] = useState<MobileState>(boot.state);
   const [toast, setToast] = useState<string | null>(null);
+  const [systemDark, setSystemDark] = useState(prefersDark);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshingRef = useRef(false);
   const timer = useRef<number | null>(null);
   const sessionRef = useRef<Session | null>(loadSession());
 
@@ -241,16 +263,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /** Every server read passes through here so the sync line tells the truth. */
+  const applyRemote = useCallback((remote: MobileStateResponse) => {
+    setState((s) => adopt(remote)(s));
+    setLastSyncedAt(Date.now());
+  }, []);
+
+  const refreshState = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+    try {
+      const token = sessionRef.current?.token;
+      if (token) {
+        const outcome = await syncLedgerState(API_BASE, token);
+        if (outcome.status === 'ok') applyRemote(outcome.state);
+        else if (outcome.status === 'unauthorized') setSession(null);
+      } else {
+        const remote = await fetchRemoteState();
+        if (remote) applyRemote(remote);
+      }
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
+  }, [applyRemote, setSession]);
+
   useEffect(() => {
     if (boot.stored || sessionRef.current) return;
     let alive = true;
     void fetchRemoteState().then((remote) => {
-      if (alive && remote) setState((current) => ({ ...remote, prefs: current.prefs }));
+      if (alive && remote) applyRemote(remote);
     });
     return () => {
       alive = false;
     };
-  }, [boot.stored]);
+  }, [boot.stored, applyRemote]);
 
   useEffect(() => {
     const token = sessionRef.current?.token;
@@ -258,13 +306,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let alive = true;
     void syncLedgerState(API_BASE, token).then((outcome) => {
       if (!alive) return;
-      if (outcome.status === 'ok') setState((current) => ({ ...outcome.state, prefs: current.prefs }));
+      if (outcome.status === 'ok') applyRemote(outcome.state);
       else if (outcome.status === 'unauthorized') setSession(null);
     });
     return () => {
       alive = false;
     };
-  }, [setSession]);
+  }, [applyRemote, setSession]);
 
   useEffect(() => {
     try {
@@ -275,14 +323,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state]);
 
   useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (event: MediaQueryListEvent) => setSystemDark(event.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  const theme = state.prefs.theme;
+  const dark = theme === 'system' ? systemDark : theme === 'dark';
+
+  useEffect(() => {
     const root = document.documentElement;
-    const dark = state.prefs.darkMode;
     root.dataset.theme = dark ? 'dark' : 'light';
     root.style.colorScheme = dark ? 'dark' : 'light';
     document
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute('content', dark ? '#050F2C' : '#F5F5F8');
-  }, [state.prefs.darkMode]);
+  }, [dark]);
 
   const notify = useCallback((message: string) => {
     setToast(message);
@@ -316,7 +373,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
-          setState(adopt(outcome.state));
+          applyRemote(outcome.state);
           notify(`${formatNgn(amount)} added to your wallet`);
           return { ok: true, txn };
         }
@@ -354,7 +411,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
-          setState(adopt(outcome.state));
+          applyRemote(outcome.state);
           notify(`${formatNgn(amount)} sent to ${bankName}`);
           return { ok: true, txn };
         }
@@ -395,7 +452,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
-          setState(adopt(outcome.state));
+          applyRemote(outcome.state);
           notify(`${formatNgn(amount)} sent to ${recipient}`);
           return { ok: true, txn };
         }
@@ -454,7 +511,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (outcome.status === 'ok') {
           const plan = outcome.state.plans.find((p) => !before.has(p.id)) ?? outcome.state.plans[0];
           const txn = outcome.state.txns.find((t) => t.ref === ref);
-          setState(adopt(outcome.state));
+          applyRemote(outcome.state);
           notify(`${name} opened with ${formatNgn(input.initial)}`);
           return { ok: true, plan, txn };
         }
@@ -528,7 +585,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
-          setState(adopt(outcome.state));
+          applyRemote(outcome.state);
           notify(`${formatNgn(amount)} added to ${plan.name}`);
           return { ok: true, txn };
         }
@@ -574,7 +631,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
-          setState(adopt(outcome.state));
+          applyRemote(outcome.state);
           notify(`${formatNgn(amount)} moved to your wallet`);
           return { ok: true, txn };
         }
@@ -635,7 +692,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (outcome.status === 'rejected') return { ok: false, error: outcome.error };
         if (outcome.status === 'ok') {
           const txn = outcome.state.txns.find((t) => t.ref === ref);
-          setState(adopt(outcome.state));
+          applyRemote(outcome.state);
           notify(side === 'buy' ? `${units} ${symbol} bought at ${price}` : `${units} ${symbol} sold`);
           return { ok: true, txn };
         }
@@ -745,18 +802,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reset = useCallback(() => {
-    setState((s) => ({ ...seed(), prefs: { ...seedPrefs(), darkMode: s.prefs.darkMode } }));
+    setState((s) => ({ ...seed(), prefs: { ...seedPrefs(), theme: s.prefs.theme } }));
     notify('Demo account reset to its starting balances');
     void fetchRemoteState().then((remote) => {
-      if (remote) setState((s) => ({ ...remote, prefs: s.prefs }));
+      if (remote) applyRemote(remote);
     });
-  }, [notify]);
+  }, [applyRemote, notify]);
 
   const startFresh = useCallback<Store['startFresh']>(
     (input) => {
       setState((s) => {
         const next = freshAccount(input);
-        return { ...next, prefs: { ...next.prefs, darkMode: s.prefs.darkMode } };
+        return { ...next, prefs: { ...next.prefs, theme: s.prefs.theme } };
       });
       notify(`Welcome to Apex, ${input.name.trim().split(/\s+/)[0]}`);
     },
@@ -764,12 +821,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const signInDemo = useCallback(() => {
-    setState((s) => ({ ...seed(), prefs: { ...seedPrefs(), darkMode: s.prefs.darkMode } }));
+    setState((s) => ({ ...seed(), prefs: { ...seedPrefs(), theme: s.prefs.theme } }));
     notify('Signed in to the demo account');
     void fetchRemoteState().then((remote) => {
-      if (remote) setState((s) => ({ ...remote, prefs: s.prefs }));
+      if (remote) applyRemote(remote);
     });
-  }, [notify]);
+  }, [applyRemote, notify]);
 
   const requestSignInCode = useCallback<Store['requestSignInCode']>(async (phone) => {
     const outcome = await requestSignInCodeApi(API_BASE, { phone });
@@ -791,6 +848,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (outcome.status === 'ok') {
           setSession({ token: outcome.auth.token });
           setState((s) => ({ ...outcome.auth.state, prefs: s.prefs }));
+          setLastSyncedAt(Date.now());
           notify(
             input.mode === 'signup'
               ? `Welcome to Apex${input.name ? `, ${input.name.trim().split(/\s+/)[0]}` : ''}`
@@ -828,6 +886,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (outcome.status === 'ok') {
         setSession({ token: outcome.auth.token });
         setState((s) => ({ ...outcome.auth.state, prefs: s.prefs }));
+        setLastSyncedAt(Date.now());
         return { ok: true };
       }
       return { ok: false, error: 'Could not verify that code.' };
@@ -838,9 +897,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const signOutAccount = useCallback<Store['signOutAccount']>(async () => {
     const token = sessionRef.current?.token;
     setSession(null);
-    setState((s) => ({ ...seed(), prefs: { ...seedPrefs(), darkMode: s.prefs.darkMode } }));
+    setState((s) => ({ ...seed(), prefs: { ...seedPrefs(), theme: s.prefs.theme } }));
     if (token) await signOutLedger(API_BASE, token);
   }, [setSession]);
+
+  const setTheme = useCallback((mode: ThemeMode) => setPref('theme', mode), [setPref]);
 
   const savings = useMemo(() => sum(state.plans.map((p) => p.balanceKobo)), [state.plans]);
   const investNgn = useMemo(
@@ -879,8 +940,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reauthStart,
       reauthVerify,
       signOutAccount,
+      dark,
+      theme,
+      setTheme,
+      lastSyncedAt,
+      refreshing,
+      refreshState,
     }),
-    [state, savings, investNgn, investUsd, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, setPref, reset, startFresh, signInDemo, requestSignInCode, verifySignInCode, reauthStart, reauthVerify, signOutAccount],
+    [state, savings, investNgn, investUsd, toast, notify, addMoney, withdraw, transfer, createPlan, planDeposit, planWithdraw, trade, markAllRead, setPref, reset, startFresh, signInDemo, requestSignInCode, verifySignInCode, reauthStart, reauthVerify, signOutAccount, dark, theme, setTheme, lastSyncedAt, refreshing, refreshState],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

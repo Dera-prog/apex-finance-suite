@@ -110,6 +110,135 @@ const minorText = (currency: 'NGN' | 'USD', value: Minor) =>
   currency === 'USD' ? formatUsd(value) : formatNgn(value, 2);
 const progressPct = (balance: Minor, target: Minor) => Math.min(100, Math.floor((balance / target) * 100));
 
+const RESEND_SECONDS = 30;
+
+/** Refreshes the preview once a second while a resend window or the sync clock is on screen. */
+function useClock(active = true) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!active) return undefined;
+    const timer = window.setInterval(() => setTick((n) => n + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+}
+
+function useResendCountdown(until: number | null) {
+  useClock(until !== null);
+  return until ? Math.max(0, Math.ceil((until - Date.now()) / 1000)) : 0;
+}
+
+/** Six cells that accept a paste, walk backwards on delete and keep the digits after a wrong code. */
+function CodeCells({
+  value,
+  onChange,
+  autoFocus,
+  invalid,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  autoFocus?: boolean;
+  invalid?: boolean;
+}) {
+  const refs = useRef<Array<HTMLInputElement | null>>([]);
+  const focusAt = (index: number) => {
+    const el = refs.current[Math.min(Math.max(index, 0), 5)];
+    el?.focus();
+    el?.select();
+  };
+  const place = (index: number, raw: string) => {
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) {
+      onChange(value.slice(0, index) + value.slice(index + 1));
+      return;
+    }
+    const next = (index < value.length ? value.slice(0, index) + digits + value.slice(index + 1) : value + digits).slice(0, 6);
+    onChange(next);
+    focusAt(next.length);
+  };
+  return (
+    <div className={`code-cells${invalid ? ' invalid' : ''}`} role="group" aria-label="Six-digit code">
+      {[0, 1, 2, 3, 4, 5].map((index) => (
+        <input
+          key={index}
+          ref={(el) => {
+            refs.current[index] = el;
+          }}
+          className="input code-cell"
+          inputMode="numeric"
+          autoComplete={index === 0 ? 'one-time-code' : 'off'}
+          aria-label={`Digit ${index + 1} of 6`}
+          value={value[index] ?? ''}
+          autoFocus={autoFocus && index === 0}
+          onChange={(e) => place(index, e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Backspace') {
+              e.preventDefault();
+              if (value[index]) {
+                onChange(value.slice(0, index) + value.slice(index + 1));
+                focusAt(index);
+              } else if (index > 0) {
+                onChange(value.slice(0, index - 1) + value.slice(index));
+                focusAt(index - 1);
+              }
+            } else if (e.key === 'ArrowLeft') {
+              e.preventDefault();
+              focusAt(index - 1);
+            } else if (e.key === 'ArrowRight') {
+              e.preventDefault();
+              focusAt(index + 1);
+            }
+          }}
+          onPaste={(e) => {
+            const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+            if (!digits) return;
+            e.preventDefault();
+            onChange(digits);
+            focusAt(digits.length);
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const syncAge = (ms: number) => {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  return `${Math.floor(hours / 24)} d ago`;
+};
+
+/** Says how fresh the server-owned balances are, and quietly re-reads once when they go stale. */
+function SyncLine({ light }: { light?: boolean }) {
+  const s = useStore();
+  useClock();
+  const retried = useRef<number | null>(null);
+  const age = s.lastSyncedAt ? Date.now() - s.lastSyncedAt : null;
+  const stale = age === null || age >= 60_000;
+
+  useEffect(() => {
+    if (!stale || s.refreshing) return;
+    if (retried.current === s.lastSyncedAt) return;
+    retried.current = s.lastSyncedAt;
+    void s.refreshState();
+  }, [stale, s.refreshing, s.lastSyncedAt, s.refreshState]);
+
+  const label = s.refreshing
+    ? 'Refreshing…'
+    : s.lastSyncedAt === null
+      ? 'Not synced yet'
+      : `Updated ${syncAge(age ?? 0)} · synced`;
+  return (
+    <p className={`sync-line${light ? ' light' : ''}${stale && !s.refreshing ? ' stale' : ''}`} role="status">
+      <RefreshCw size={11} className={s.refreshing ? 'spin' : ''} aria-hidden="true" />
+      {label}
+    </p>
+  );
+}
+
 function useInstall() {
   const [event, setEvent] = useState<PromptEvent | null>(null);
   const [installed, setInstalled] = useState(
@@ -174,6 +303,29 @@ function Splash({ done }: { done: () => void }) {
     </div>
   );
 }
+
+const ACTIVITY_KEY = 'apex.mobile.activity.v1';
+type ActivityMemory = { filter: string; scroll: number };
+
+const readActivityMemory = (): ActivityMemory => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ACTIVITY_KEY) ?? 'null') as Partial<ActivityMemory> | null;
+    return {
+      filter: typeof parsed?.filter === 'string' ? parsed.filter : 'all',
+      scroll: typeof parsed?.scroll === 'number' ? parsed.scroll : 0,
+    };
+  } catch {
+    return { filter: 'all', scroll: 0 };
+  }
+};
+
+const writeActivityMemory = (patch: Partial<ActivityMemory>) => {
+  try {
+    localStorage.setItem(ACTIVITY_KEY, JSON.stringify({ ...readActivityMemory(), ...patch }));
+  } catch {
+    /* memory is a convenience; the list still works without it */
+  }
+};
 
 export default function App() {
   const [stage, setStage] = useState<Stage>(() => (hasStoredSession() ? 'app' : 'welcome'));
@@ -356,6 +508,7 @@ function HomeScreen({
           </span>
           <span>all time</span>
         </div>
+        <SyncLine light />
         <div className="hero-actions">
           <button className="hero-btn primary" onClick={() => open({ type: 'money', mode: 'add' })}>
             <Plus size={17} /> Add money
@@ -609,6 +762,7 @@ function NewHome({
           </button>
         </div>
         <div className="hero-amount">{maskAmount(hide, money(total))}</div>
+        <SyncLine light />
         <div className="hero-stats two">
           <div>
             <span>Savings</span>
@@ -1042,7 +1196,6 @@ function ProfileScreen({
 }) {
   const s = useStore();
   const p = s.user;
-  const dark = s.prefs.darkMode;
 
   const explore = [
     { label: 'Marketing website', href: links.website },
@@ -1052,7 +1205,7 @@ function ProfileScreen({
 
   const note = (title: string, body: string) => open({ type: 'info', title, body });
 
-  const toggle = (key: keyof typeof s.prefs) => (
+  const toggle = (key: Exclude<keyof typeof s.prefs, 'theme'>) => (
     <button
       role="switch"
       aria-checked={s.prefs[key]}
@@ -1202,18 +1355,28 @@ function ProfileScreen({
               <Moon size={18} />
             </span>
             <span className="menu-main">
-              <b>Dark Mode</b>
-              <em>Deep royal blue interface for low light. Applies to this device.</em>
+              <b>Theme</b>
+              <em>{s.theme === 'system' ? 'Following your device until you pick one.' : 'This device only.'}</em>
             </span>
-            <button
-              role="switch"
-              aria-checked={dark}
-              aria-label="Deep royal blue dark mode"
-              className={`toggle ${dark ? 'on' : ''}`}
-              onClick={() => s.setPref('darkMode', !dark)}
-            >
-              <span />
-            </button>
+          </div>
+          <div className="theme-options" role="group" aria-label="Theme">
+            {(
+              [
+                ['light', 'Light'],
+                ['dark', 'Dark'],
+                ['system', 'System'],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                className={s.theme === mode ? 'active' : ''}
+                aria-pressed={s.theme === mode}
+                onClick={() => s.setTheme(mode)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -1357,6 +1520,9 @@ function AuthFlow({
   const [devCode, setDevCode] = useState<string | undefined>();
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [resendAt, setResendAt] = useState<number | null>(null);
+  const [shake, setShake] = useState(false);
+  const secondsLeft = useResendCountdown(resendAt);
 
   const signInDemoRef = useRef(store.signInDemo);
   signInDemoRef.current = store.signInDemo;
@@ -1396,7 +1562,26 @@ function AuthFlow({
     setChallengeId(result.challengeId);
     setDevCode(result.devCode);
     setOffline(Boolean(result.offline));
+    setResendAt(Date.now() + RESEND_SECONDS * 1000);
     go('otp');
+  };
+
+  const resendCode = async () => {
+    if (busy || secondsLeft > 0) return;
+    setError('');
+    setBusy(true);
+    const digits = phone.replace(/\D/g, '');
+    const result = await store.requestSignInCode(`+234${digits.slice(-10)}`);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error ?? 'Could not send a code.');
+      return;
+    }
+    setChallengeId(result.challengeId);
+    setDevCode(result.devCode);
+    setOffline(Boolean(result.offline));
+    setCode('');
+    setResendAt(Date.now() + RESEND_SECONDS * 1000);
   };
 
   const submitCode = async (e: React.FormEvent) => {
@@ -1419,6 +1604,8 @@ function AuthFlow({
     setBusy(false);
     if (!result.ok) {
       setError(result.error ?? 'That code did not work.');
+      setShake(true);
+      window.setTimeout(() => setShake(false), 450);
       return;
     }
     go('pin');
@@ -1666,27 +1853,30 @@ function AuthFlow({
           ) : null}
         </p>
         <form className="auth-form" onSubmit={submitCode}>
-          <label className="field">
+          <div className="field">
             <span>Six-digit code</span>
-            <input
-              className="code-input"
-              inputMode="numeric"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="••••••"
-              autoFocus
-            />
-          </label>
+            <CodeCells value={code} onChange={setCode} autoFocus invalid={shake} />
+          </div>
           {error && <p className="form-error">{error}</p>}
           <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
             {busy ? 'Checking…' : 'Verify code'}
           </button>
-          {devCode && (
-            <button className="demo-link" type="button" onClick={() => setCode(devCode)}>
-              Use demo code {devCode}
-            </button>
-          )}
+          <div className="resend-row">
+            {secondsLeft > 0 ? (
+              <span className="resend-wait">
+                Resend code in 0:{String(secondsLeft).padStart(2, '0')}
+              </span>
+            ) : (
+              <button className="demo-link" type="button" onClick={() => void resendCode()} disabled={busy}>
+                Resend code
+              </button>
+            )}
+            {devCode && (
+              <button className="demo-link" type="button" onClick={() => setCode(devCode)}>
+                Use demo code {devCode}
+              </button>
+            )}
+          </div>
         </form>
       </div>
     );
@@ -1791,12 +1981,14 @@ function Sheet({
   close,
   children,
   tall = false,
+  bodyRef,
 }: {
   title: string;
   subtitle?: string;
   close: () => void;
   children: React.ReactNode;
   tall?: boolean;
+  bodyRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(close);
@@ -1854,7 +2046,7 @@ function Sheet({
             <X size={19} />
           </button>
         </header>
-        <div className="sheet-body">{children}</div>
+        <div className="sheet-body" ref={bodyRef}>{children}</div>
       </div>
     </div>
   );
@@ -1879,6 +2071,9 @@ function ReauthPanel({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [resendAt, setResendAt] = useState<number | null>(null);
+  const [shake, setShake] = useState(false);
+  const secondsLeft = useResendCountdown(resendAt);
   const started = useRef(false);
 
   const send = async () => {
@@ -1893,6 +2088,7 @@ function ReauthPanel({
     setChallengeId(r.challengeId);
     setDevCode(r.devCode);
     setSent(true);
+    setResendAt(Date.now() + RESEND_SECONDS * 1000);
   };
 
   useEffect(() => {
@@ -1915,6 +2111,8 @@ function ReauthPanel({
     setBusy(false);
     if (!r.ok) {
       setError(r.error ?? 'That code did not work.');
+      setShake(true);
+      window.setTimeout(() => setShake(false), 450);
       return;
     }
     onVerified();
@@ -1931,25 +2129,21 @@ function ReauthPanel({
       {error && <p className="form-error">{error}</p>}
       {sent ? (
         <form onSubmit={submit}>
-          <label className="field">
+          <div className="field">
             <span>Six-digit code</span>
-            <input
-              className="code-input"
-              inputMode="numeric"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="••••••"
-              autoFocus
-            />
-          </label>
+            <CodeCells value={code} onChange={setCode} autoFocus invalid={shake} />
+          </div>
           {devCode && <b className="demo-hint">Demo code: {devCode}</b>}
           <button className="btn btn-primary btn-block" type="submit" disabled={busy} aria-busy={busy}>
             {busy ? 'Verifying…' : 'Verify and finish'}
           </button>
-          <button className="demo-link" type="button" onClick={() => void send()} disabled={busy}>
-            Send a new code
-          </button>
+          {secondsLeft > 0 ? (
+            <span className="resend-wait">Send a new code in 0:{String(secondsLeft).padStart(2, '0')}</span>
+          ) : (
+            <button className="demo-link" type="button" onClick={() => void send()} disabled={busy}>
+              Send a new code
+            </button>
+          )}
         </form>
       ) : (
         <button
@@ -2765,10 +2959,34 @@ function NotificationsSheet({ close }: { close: () => void }) {
   );
 }
 
+type ActivityFilter = 'all' | 'in' | 'out' | 'savings' | 'invest';
+
 function ActivitySheet({ close, open }: { close: () => void; open: (o: Overlay) => void }) {
   const s = useStore();
   const hide = s.prefs.hideBalance;
-  const [filter, setFilter] = useState<'all' | 'in' | 'out' | 'savings' | 'invest'>('all');
+  const [filter, setFilter] = useState<ActivityFilter>(() => {
+    const saved = readActivityMemory().filter;
+    return saved === 'in' || saved === 'out' || saved === 'savings' || saved === 'invest' ? saved : 'all';
+  });
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    writeActivityMemory({ filter });
+  }, [filter]);
+
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return undefined;
+    const saved = readActivityMemory().scroll;
+    if (saved > 0) el.scrollTop = saved;
+    const onScroll = () => writeActivityMemory({ scroll: el.scrollTop });
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      writeActivityMemory({ scroll: el.scrollTop });
+      el.removeEventListener('scroll', onScroll);
+    };
+  }, []);
+
   const list = s.txns.filter((t) => {
     if (filter === 'all') return true;
     const settled = t.status !== 'Failed';
@@ -2778,7 +2996,7 @@ function ActivitySheet({ close, open }: { close: () => void; open: (o: Overlay) 
   });
 
   return (
-    <Sheet title="Activity" subtitle={`${s.txns.length} records · demo ledger`} close={close} tall>
+    <Sheet title="Activity" subtitle={`${s.txns.length} records · demo ledger`} close={close} tall bodyRef={bodyRef}>
       <div className="chips sticky-chips">
         {(
           [

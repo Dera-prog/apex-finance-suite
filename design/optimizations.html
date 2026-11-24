@@ -144,7 +144,7 @@
         <p>Six cells that accept a paste, walk backwards on delete, and show the resend countdown before the user asks.</p>
         <div class="beforeafter">
           <div class="b"><small>Before</small>Retype all six after one mistake</div>
-          <div class="a"><small>After</small>Paste fills, errors shake once, timer visible</div>
+          <div class="a"><small>Shipped</small>Paste fills, errors shake once, timer visible</div>
         </div>
         <div class="accept"><b>Acceptance</b>Pasting a 6-digit SMS fills every cell; wrong code keeps the digits for correction; rate-limit copy includes the wait time.</div>
       </article>
@@ -154,7 +154,7 @@
         <p>Because balances are server-owned, a small "Updated just now · synced" line on Overview and Wallet explains why another device agrees.</p>
         <div class="beforeafter">
           <div class="b"><small>Before</small>Unknown freshness</div>
-          <div class="a"><small>After</small>"Updated just now" beside the balance</div>
+          <div class="a"><small>Shipped</small>"Updated just now" beside the balance</div>
         </div>
         <div class="accept"><b>Acceptance</b>Timestamp updates on every successful read; stale (&gt; 60 s) reads show "Refreshing…" and retry silently once.</div>
       </article>
@@ -178,6 +178,10 @@
       <article class="opt">
         <header><h3>12 · Activity that remembers</h3><span class="tag pr">P2</span></header>
         <p>Keep the chosen filter and search across visits, and restore scroll when a receipt sheet closes.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>Every visit starts on "All" with an empty search</div>
+          <div class="a"><small>Shipped</small>Filter, query and scroll return where you left them</div>
+        </div>
         <div class="accept"><b>Acceptance</b>Returning to Activity restores the last filter and query; closing a detail sheet returns to the same scroll offset.</div>
       </article>
       <article class="opt">
@@ -188,6 +192,10 @@
       <article class="opt">
         <header><h3>14 · Follow the system theme</h3><span class="tag pr">P2</span></header>
         <p>Add a "System" option beside Light and Dark, applied before first paint on both apps.</p>
+        <div class="beforeafter">
+          <div class="b"><small>Before</small>Light flash on every load before the saved theme applies</div>
+          <div class="a"><small>Shipped</small>System honoured before first paint; manual choice persists</div>
+        </div>
         <div class="accept"><b>Acceptance</b>System preference is honoured on first load with no light flash; manual choice still wins and persists.</div>
       </article>
     </div>

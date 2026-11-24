@@ -9,6 +9,12 @@ export class RateLimitError extends Error {
   }
 }
 
+/** "48 seconds" / "3 minutes" — the client shows this verbatim, so keep it sentence-ready. */
+export const waitCopy = (seconds: number) => {
+  const secs = Math.max(1, Math.round(seconds));
+  return secs < 90 ? `${secs} second${secs === 1 ? '' : 's'}` : `${Math.ceil(secs / 60)} minutes`;
+};
+
 type Limit = {
   bucket: string;
   subject: string;
@@ -27,15 +33,21 @@ export async function enforceRateLimit({ bucket, subject, limit, windowSeconds }
     // Serialise per subject so simultaneous requests cannot both slip under the limit.
     await client.query('select pg_advisory_xact_lock(hashtext($1))', [`${bucket}:${subject}`]);
 
-    const { rows } = await client.query<{ used: number }>(
-      `select count(*)::int as used
+    const { rows } = await client.query<{ used: number; wait: number }>(
+      `select count(*)::int as used,
+              coalesce(
+                greatest(1, ceil(extract(epoch from (min(occurred_at) + make_interval(secs => $3) - now())))),
+                1
+              )::int as wait
          from rate_limits
         where bucket = $1 and subject = $2 and occurred_at > now() - make_interval(secs => $3)`,
       [bucket, subject, windowSeconds],
     );
-    if ((rows[0]?.used ?? 0) >= limit) {
+    const used = rows[0]?.used ?? 0;
+    if (used >= limit) {
+      const wait = rows[0]?.wait ?? (windowSeconds <= 600 ? windowSeconds : 60);
       await client.query('rollback');
-      throw new RateLimitError();
+      throw new RateLimitError(`Too many requests. Try again in ${waitCopy(wait)}.`);
     }
 
     await client.query('insert into rate_limits (bucket, subject) values ($1, $2)', [bucket, subject]);
